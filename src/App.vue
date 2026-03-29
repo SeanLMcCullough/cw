@@ -318,8 +318,16 @@
                   </div>
                 </div>
 
-                <div class="q-mt-xl text-h6 text-grey-6 transition-all">
-                  <span v-if="isUserTurn"
+                <div
+                  class="q-mt-xl text-h6 transition-all"
+                  :class="
+                    isWaitingForGap
+                      ? 'text-warning text-weight-bold'
+                      : 'text-grey-6'
+                  "
+                >
+                  <span v-if="isUserTurn && isWaitingForGap"></span>
+                  <span v-else-if="isUserTurn"
                     >Tap or hold SPACEBAR, or touch here to key.</span
                   >
                   <span v-else class="text-secondary">Receiving...</span>
@@ -513,6 +521,7 @@ const effWpm = ref(15);
 // UI State
 const isAdvancedExpanded = ref(false);
 const isAcceptingInput = ref(false);
+const isWaitingForGap = ref(false);
 let isFirstCharOfTx = true;
 
 // Audio/Radio Effects State
@@ -616,7 +625,7 @@ const gradeColor = computed(
 );
 
 // --- Audio Engine ---
-const initAudio = () => {
+function initAudio() {
   if (!audioCtx) {
     audioCtx = new (
       window.AudioContext || (window as any).webkitAudioContext
@@ -666,9 +675,9 @@ const initAudio = () => {
   } else if (audioCtx.state === "suspended") {
     audioCtx.resume();
   }
-};
+}
 
-const syncNoiseEngine = () => {
+function syncNoiseEngine() {
   if (!audioCtx || !noiseGain) return;
   const isTransmitting = isUserTurn.value && isKeyDown;
   const targetVol =
@@ -676,11 +685,11 @@ const syncNoiseEngine = () => {
       ? noiseVolume.value
       : 0;
   noiseGain.gain.setTargetAtTime(targetVol, audioCtx.currentTime, 0.01);
-};
+}
 
 watch([enableNoise, noiseVolume, isUserTurn, appState], syncNoiseEngine);
 
-const toneOn = () => {
+function toneOn() {
   if (!audioCtx || !gainNode || !oscillator) return;
   const now = audioCtx.currentTime;
 
@@ -696,15 +705,15 @@ const toneOn = () => {
   gainNode.gain.cancelScheduledValues(now);
   gainNode.gain.setValueAtTime(gainNode.gain.value, now);
   gainNode.gain.setTargetAtTime(targetVol, now, 0.005);
-};
+}
 
-const toneOff = () => {
+function toneOff() {
   if (!audioCtx || !gainNode) return;
   const now = audioCtx.currentTime;
   gainNode.gain.cancelScheduledValues(now);
   gainNode.gain.setValueAtTime(gainNode.gain.value, now);
   gainNode.gain.setTargetAtTime(0, now, 0.005);
-};
+}
 
 watch(toneFreq, (newFreq) => {
   if (oscillator && audioCtx && isUserTurn.value) {
@@ -713,10 +722,11 @@ watch(toneFreq, (newFreq) => {
 });
 
 // --- Game Logic ---
-const startSession = () => {
+function startSession() {
   initAudio();
   isAdvancedExpanded.value = false;
   isAcceptingInput.value = false;
+  isWaitingForGap.value = false;
   isFirstCharOfTx = true;
 
   const offset = Math.floor(Math.random() * 151) + 50;
@@ -739,24 +749,26 @@ const startSession = () => {
 
   syncNoiseEngine();
   processLine();
-};
+}
 
-const stopSession = () => {
+function stopSession() {
   appState.value = "IDLE";
   isAcceptingInput.value = false;
+  isWaitingForGap.value = false;
   toneOff();
   syncNoiseEngine();
 
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
   if (pacerFrameId) cancelAnimationFrame(pacerFrameId);
   if (txTimeout) clearTimeout(txTimeout);
-};
+}
 
-const processLine = () => {
+function processLine() {
   if (appState.value !== "RUNNING") return;
   if (currentLineIndex.value >= compiledScript.value.length) {
     appState.value = "FINISHED";
     isAcceptingInput.value = false;
+    isWaitingForGap.value = false;
     syncNoiseEngine();
     return;
   }
@@ -771,26 +783,25 @@ const processLine = () => {
     revealedLength.value = 1;
     isFirstCharOfTx = true;
     isAcceptingInput.value = false;
+    isWaitingForGap.value = false;
 
-    if (line.text[0] === " ") {
-      advanceTXChar();
-    } else {
-      setupPlayableChar(0);
-    }
+    // Jumpstart the recursion logic with 0 delay
+    setupPlayableChar(0);
   } else {
     isUserTurn.value = false;
     isAcceptingInput.value = false;
+    isWaitingForGap.value = false;
     playRXLine();
   }
-};
+}
 
-const finishLine = () => {
+function finishLine() {
   historyLines.value.push(compiledScript.value[currentLineIndex.value]);
   currentLineIndex.value++;
   setTimeout(processLine, 800);
-};
+}
 
-const scrollToCurrentChar = async () => {
+async function scrollToCurrentChar() {
   await nextTick();
   if (!activeMessageRef.value) return;
 
@@ -805,9 +816,9 @@ const scrollToCurrentChar = async () => {
       activeEl.offsetWidth / 2;
     container.scrollTo({ left: targetScrollLeft, behavior: "smooth" });
   }
-};
+}
 
-const setupPlayableChar = (accumulatedDelay: number) => {
+function setupPlayableChar(accumulatedDelay: number) {
   if (appState.value !== "RUNNING") return;
 
   if (txTimeout) clearTimeout(txTimeout);
@@ -822,6 +833,7 @@ const setupPlayableChar = (accumulatedDelay: number) => {
 
   if (char === " ") {
     charStatuses.value[currentCharIndex.value] = "passed";
+
     const farnsworthRatio = charWpm.value / effWpm.value;
     const wordSpaceMs = dotMs.value * 4 * farnsworthRatio;
 
@@ -843,6 +855,10 @@ const setupPlayableChar = (accumulatedDelay: number) => {
   if (isUserTurn.value) {
     isAcceptingInput.value = false;
 
+    if (accumulatedDelay > 50) {
+      isWaitingForGap.value = true;
+    }
+
     pacerHasStarted = false;
     if (pacerFrameId) cancelAnimationFrame(pacerFrameId);
     pacerFill.value = 0;
@@ -856,55 +872,58 @@ const setupPlayableChar = (accumulatedDelay: number) => {
       }, 0);
     }
 
-    // Unlock input practically instantly (20ms bounds protection only)
-    // Allows the user to key ahead of the pacer if they are ready!
+    // Fast unlock allows the user to key ahead of the pacer if they know the timing
     setTimeout(() => {
       if (appState.value === "RUNNING" && isUserTurn.value) {
         isAcceptingInput.value = true;
       }
     }, 20);
 
-    // Pacer Auto-Start schedule
-    txTimeout = setTimeout(() => {
-      if (appState.value !== "RUNNING" || !isUserTurn.value) return;
+    txTimeout = setTimeout(
+      () => {
+        if (appState.value !== "RUNNING" || !isUserTurn.value) return;
 
-      if (isFirstCharOfTx) {
-        isFirstCharOfTx = false;
-      } else if (!pacerHasStarted) {
-        // Auto-start pacer to enforce rhythm
-        pacerHasStarted = true;
-        pacerStartTime = performance.now();
+        isWaitingForGap.value = false;
+        isAcceptingInput.value = true;
 
-        const updatePacer = () => {
-          const elapsed = performance.now() - pacerStartTime;
-          pacerFill.value = Math.min((elapsed / pacerDuration) * 100, 100);
-          if (pacerFill.value < 100 && appState.value === "RUNNING") {
-            pacerFrameId = requestAnimationFrame(updatePacer);
-          }
-        };
-        pacerFrameId = requestAnimationFrame(updatePacer);
-      }
-    }, accumulatedDelay);
+        if (isFirstCharOfTx) {
+          isFirstCharOfTx = false;
+        } else if (!pacerHasStarted) {
+          pacerHasStarted = true;
+          pacerStartTime = performance.now();
+
+          const updatePacer = () => {
+            const elapsed = performance.now() - pacerStartTime;
+            pacerFill.value = Math.min((elapsed / pacerDuration) * 100, 100);
+            if (pacerFill.value < 100 && appState.value === "RUNNING") {
+              pacerFrameId = requestAnimationFrame(updatePacer);
+            }
+          };
+          pacerFrameId = requestAnimationFrame(updatePacer);
+        }
+      },
+      Math.max(20, accumulatedDelay),
+    );
   }
-};
+}
 
 // --- Keying Handlers (TX) ---
-const handleGlobalKeydown = (e: KeyboardEvent) => {
+function handleGlobalKeydown(e: KeyboardEvent) {
   if (e.repeat) return;
   if (e.code === "Space" && isRunning.value && isUserTurn.value) {
     e.preventDefault();
     handleKeydown();
   }
-};
+}
 
-const handleGlobalKeyup = (e: KeyboardEvent) => {
+function handleGlobalKeyup(e: KeyboardEvent) {
   if (e.code === "Space" && isRunning.value && isUserTurn.value) {
     e.preventDefault();
     handleKeyup();
   }
-};
+}
 
-const handleKeydown = () => {
+function handleKeydown() {
   const now = performance.now();
   if (now < keyLockoutTime) return;
   if (!isAcceptingInput.value || isKeyDown || !isUserTurn.value) return;
@@ -916,7 +935,6 @@ const handleKeydown = () => {
   toneOn();
   syncNoiseEngine();
 
-  // If user beats the pacer (or starts TX), start the pacer tracking immediately
   if (!pacerHasStarted) {
     pacerHasStarted = true;
     pacerStartTime = now;
@@ -933,9 +951,9 @@ const handleKeydown = () => {
 
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
   animationFrameId = requestAnimationFrame(updateVisualizer);
-};
+}
 
-const handleKeyup = () => {
+function handleKeyup() {
   if (!isKeyDown || !isUserTurn.value) return;
 
   const now = performance.now();
@@ -952,9 +970,9 @@ const handleKeyup = () => {
 
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
   evaluateElement();
-};
+}
 
-const updateVisualizer = () => {
+function updateVisualizer() {
   if (!isKeyDown) return;
   const elapsed = performance.now() - keydownTime;
   const expectedElement =
@@ -968,9 +986,9 @@ const updateVisualizer = () => {
 
   if (elapsed > targetMs * 3) handleKeyup();
   else animationFrameId = requestAnimationFrame(updateVisualizer);
-};
+}
 
-const evaluateElement = () => {
+function evaluateElement() {
   if (currentElementIndex.value >= currentExpectedElements.value.length) return;
 
   const elapsed = performance.now() - keydownTime;
@@ -985,7 +1003,7 @@ const evaluateElement = () => {
   currentElementIndex.value++;
 
   if (currentElementIndex.value >= currentExpectedElements.value.length) {
-    isAcceptingInput.value = false; // Instant lockout prevents bounds overrun
+    isAcceptingInput.value = false;
 
     const allPassed = elementResults.value.every((res) => res === "passed");
     charStatuses.value[currentCharIndex.value] = allPassed
@@ -1002,12 +1020,14 @@ const evaluateElement = () => {
 
     setupPlayableChar(letterSpaceMs);
   }
-};
+}
 
 // --- RX Simulation ---
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
 
-const playRXLine = async () => {
+async function playRXLine() {
   const line = compiledScript.value[currentLineIndex.value];
   const farnsworthRatio = charWpm.value / effWpm.value;
 
@@ -1020,6 +1040,7 @@ const playRXLine = async () => {
 
     if (char === " ") {
       charStatuses.value[i] = "rx";
+      // 4 dots for word space (since letter space already provided 3)
       await sleep(dotMs.value * 4 * farnsworthRatio);
       continue;
     }
@@ -1044,19 +1065,19 @@ const playRXLine = async () => {
       await playRXElementFill(duration, e);
       toneOff();
 
-      // Fix: Only apply inter-element gap if not the last element
+      // Standard 1-dot space between elements of the same letter
       if (e < code.length - 1) {
         await sleep(dotMs.value);
       }
     }
     charStatuses.value[i] = "rx";
-    // Standard Letter Space
-    await sleep(dashMs.value * farnsworthRatio);
+    // Standard 3-dot space between letters
+    await sleep(dashMs.value * 3 * farnsworthRatio);
   }
   finishLine();
-};
+}
 
-const playRXElementFill = (durationMs: number, index: number) => {
+function playRXElementFill(durationMs: number, index: number) {
   return new Promise<void>((resolve) => {
     const start = performance.now();
     const animate = (time: number) => {
@@ -1068,28 +1089,36 @@ const playRXElementFill = (durationMs: number, index: number) => {
     };
     requestAnimationFrame(animate);
   });
-};
+}
 
 // --- Helper Functions ---
-const getCharStatusClass = (idx: number) => {
+function getCharStatusClass(idx: number) {
   const status = charStatuses.value[idx];
-  if (status === "active") return "text-dark bg-primary active-bounce";
+  if (status === "active") {
+    return isWaitingForGap.value &&
+      isUserTurn.value &&
+      idx === currentCharIndex.value
+      ? "text-dark bg-grey-6"
+      : "text-dark bg-primary active-bounce";
+  }
   if (status === "passed") return "text-green-4";
   if (status === "failed") return "text-red-5";
   if (status === "rx") return "text-secondary";
   if (isUserTurn.value) return "text-grey-6";
   return "text-transparent";
-};
+}
 
-const getElementFillColor = (idx: number) => {
+function getElementFillColor(idx: number) {
   const res = elementResults.value[idx];
   if (res === "passed") return "bg-green-5";
   if (res === "failed") return "bg-red-5";
   if (res === "rx") return "bg-secondary";
   return "bg-primary";
-};
+}
 
-const getElementFillWidth = (idx: number) => elementFills.value[idx] || 0;
+function getElementFillWidth(idx: number) {
+  return elementFills.value[idx] || 0;
+}
 
 // --- Lifecycle & Persistence ---
 const STORAGE_KEY = "cw-trainer-settings-v3";
