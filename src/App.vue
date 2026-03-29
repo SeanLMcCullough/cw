@@ -514,6 +514,8 @@ const setupCharState = () => {
 
 // --- Keying Handlers ---
 const handleGlobalKeydown = (e: KeyboardEvent) => {
+  if (e.repeat) return; // Ignore browser auto-repeat!
+
   if (e.code === "Space" && appState.value === "RUNNING" && isUserTurn.value) {
     e.preventDefault();
     handleKeydown();
@@ -575,24 +577,28 @@ const evaluateElement = () => {
   const errorRatio = Math.abs(elapsed - targetMs) / targetMs;
   const passed = errorRatio <= tolerance.value;
 
+  // Record the result of this specific dot/dash
   elementResults.value[currentElementIndex.value] = passed
     ? "passed"
     : "failed";
 
-  if (!passed) {
-    // Fail the whole character if one element fails
-    charStatuses.value[currentCharIndex.value] = "failed";
-    totalChars.value++;
-    setTimeout(advanceToNextChar, 500);
-    return;
-  }
-
-  // Advance element or character
+  // Always advance to the next expected element, even if failed
   currentElementIndex.value++;
+
+  // If we have finished all elements for this character
   if (currentElementIndex.value >= currentExpectedElements.value.length) {
-    // Character complete and passed
-    charStatuses.value[currentCharIndex.value] = "passed";
-    score.value++;
+    // Evaluate if the whole character was perfect
+    const allElementsPassed = elementResults.value.every(
+      (res) => res === "passed",
+    );
+    charStatuses.value[currentCharIndex.value] = allElementsPassed
+      ? "passed"
+      : "failed";
+
+    if (allElementsPassed) {
+      score.value++;
+    }
+
     totalChars.value++;
     setTimeout(advanceToNextChar, 300);
   }
