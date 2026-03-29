@@ -71,7 +71,7 @@
                 <div class="text-h6 text-grey-4 q-mb-xs">Live Tuning</div>
                 <div>
                   <div class="text-caption text-grey-5">
-                    Tone Frequency: {{ toneFreq }} Hz
+                    TX Tone Frequency: {{ toneFreq }} Hz
                   </div>
                   <q-slider
                     v-model="toneFreq"
@@ -126,7 +126,11 @@
               <div
                 class="column items-center justify-center full-width full-height q-pa-lg z-top pointer-events-none"
               >
-                <div class="active-message-container q-mb-xl transition-all">
+                <div
+                  class="active-message-viewport q-mb-xl transition-all relative-position"
+                  ref="activeMessageRef"
+                >
+                  <span class="viewport-spacer"></span>
                   <span
                     v-for="(char, charIdx) in compiledScript[currentLineIndex]
                       ?.text"
@@ -139,6 +143,7 @@
                   >
                     {{ char === " " ? "\u00A0" : char }}
                   </span>
+                  <span class="viewport-spacer"></span>
                 </div>
 
                 <div
@@ -179,7 +184,8 @@
                     >Tap or hold SPACEBAR, or touch here to key.</span
                   >
                   <span v-else class="text-secondary"
-                    >Listen to the timing and cadence...</span
+                    >RX Tone offset by {{ rxToneFreq - toneFreq > 0 ? "+" : ""
+                    }}{{ rxToneFreq - toneFreq }}Hz...</span
                   >
                 </div>
               </div>
@@ -263,7 +269,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from "vue";
 
 // --- Types & Dictionary ---
 type AppState = "IDLE" | "RUNNING" | "FINISHED";
@@ -345,9 +351,10 @@ const scripts: ScriptDef[] = [
 const appState = ref<AppState>("IDLE");
 const callsign = ref("VK4ABC");
 const selectedScript = ref<ScriptDef>(scripts[0]);
-const charWpm = ref(20);
-const effWpm = ref(10);
+const charWpm = ref(15);
+const effWpm = ref(15);
 const toneFreq = ref(700);
+const rxToneFreq = ref(700); // Randomized upon Start
 const tolerance = ref(0.3);
 
 const compiledScript = ref<ScriptLine[]>([]);
@@ -367,6 +374,9 @@ const elementResults = ref<("pending" | "passed" | "failed" | "rx")[]>([]);
 const score = ref(0);
 const totalChars = ref(0);
 
+// DOM Refs
+const activeMessageRef = ref<HTMLElement | null>(null);
+
 // Audio & Timing Refs
 let audioCtx: AudioContext | null = null;
 let oscillator: OscillatorNode | null = null;
@@ -377,7 +387,7 @@ let isKeyDown = false;
 
 // Debounce Tracking
 let keyLockoutTime = 0;
-const DEBOUNCE_DELAY = 12; // 12ms hardware lockout equivalent
+const DEBOUNCE_DELAY = 12;
 
 // --- Computed ---
 const isRunning = computed(() => appState.value === "RUNNING");
@@ -441,11 +451,15 @@ const initAudio = () => {
 };
 
 const toneOn = () => {
-  if (!audioCtx || !gainNode) return;
+  if (!audioCtx || !gainNode || !oscillator) return;
   const now = audioCtx.currentTime;
+
+  // Dynamically apply correct freq based on whose turn it is
+  const activeFreq = isUserTurn.value ? toneFreq.value : rxToneFreq.value;
+  oscillator.frequency.setTargetAtTime(activeFreq, now, 0.005);
+
   gainNode.gain.cancelScheduledValues(now);
   gainNode.gain.setValueAtTime(gainNode.gain.value, now);
-  // setTargetAtTime applies an exponential curve. 0.005 time-constant = completely smooth attack.
   gainNode.gain.setTargetAtTime(1, now, 0.005);
 };
 
@@ -454,22 +468,32 @@ const toneOff = () => {
   const now = audioCtx.currentTime;
   gainNode.gain.cancelScheduledValues(now);
   gainNode.gain.setValueAtTime(gainNode.gain.value, now);
-  // Smooth release curve
   gainNode.gain.setTargetAtTime(0, now, 0.005);
 };
 
 watch(toneFreq, (newFreq) => {
-  if (oscillator && audioCtx)
-    oscillator.frequency.setValueAtTime(newFreq, audioCtx.currentTime);
+  if (oscillator && audioCtx && isUserTurn.value) {
+    oscillator.frequency.setTargetAtTime(newFreq, audioCtx.currentTime, 0.005);
+  }
 });
 
 // --- Game Logic ---
 const startSession = () => {
   initAudio();
+
+  // Generate a randomized RX tone offset by 50-200Hz
+  const offset = Math.floor(Math.random() * 151) + 50;
+  const dir = Math.random() > 0.5 ? 1 : -1;
+  let newRxFreq = toneFreq.value + offset * dir;
+  if (newRxFreq < 400) newRxFreq = toneFreq.value + offset;
+  if (newRxFreq > 1000) newRxFreq = toneFreq.value - offset;
+  rxToneFreq.value = Math.max(400, Math.min(1000, newRxFreq));
+
   compiledScript.value = selectedScript.value.lines.map((l) => ({
     speaker: l.speaker,
     text: l.text.replace(/\{CALL\}/g, callsign.value.toUpperCase()),
   }));
+
   historyLines.value = [];
   currentLineIndex.value = 0;
   score.value = 0;
@@ -511,6 +535,23 @@ const finishLine = () => {
   setTimeout(processLine, 800);
 };
 
+const scrollToCurrentChar = async () => {
+  await nextTick();
+  if (!activeMessageRef.value) return;
+
+  const container = activeMessageRef.value;
+  const chars = container.querySelectorAll(".active-message-char");
+  const activeEl = chars[currentCharIndex.value] as HTMLElement;
+
+  if (activeEl) {
+    const targetScrollLeft =
+      activeEl.offsetLeft -
+      container.offsetWidth / 2 +
+      activeEl.offsetWidth / 2;
+    container.scrollTo({ left: targetScrollLeft, behavior: "smooth" });
+  }
+};
+
 const setupCharState = () => {
   const line = compiledScript.value[currentLineIndex.value];
 
@@ -533,6 +574,8 @@ const setupCharState = () => {
   currentElementIndex.value = 0;
   elementFills.value = Array(expectedCount).fill(0);
   elementResults.value = Array(expectedCount).fill("pending");
+
+  scrollToCurrentChar();
 };
 
 // --- Keying Handlers (TX) with Debounce ---
@@ -553,12 +596,12 @@ const handleGlobalKeyup = (e: KeyboardEvent) => {
 
 const handleKeydown = () => {
   const now = performance.now();
-  if (now < keyLockoutTime) return; // Ignore bouncing switch
+  if (now < keyLockoutTime) return; // Deny bounce
   if (isKeyDown || !isUserTurn.value) return;
 
   isKeyDown = true;
   keydownTime = now;
-  keyLockoutTime = now + DEBOUNCE_DELAY; // Lockout further events temporarily
+  keyLockoutTime = now + DEBOUNCE_DELAY;
 
   toneOn();
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
@@ -570,7 +613,7 @@ const handleKeyup = () => {
 
   const now = performance.now();
   if (now < keyLockoutTime) {
-    // If released during lockout (micro-bounce), queue the release to fire safely
+    // Hardware micro-bounce detected. Queue release safely.
     setTimeout(handleKeyup, keyLockoutTime - now);
     return;
   }
@@ -687,7 +730,6 @@ const playRXElementFill = (durationMs: number, index: number) => {
 // --- Helper Functions ---
 const getCharStatusClass = (idx: number) => {
   const status = charStatuses.value[idx];
-  // Note: Padding and border radius removed from here to prevent shifting width
   if (status === "active") return "text-dark bg-primary active-bounce";
   if (status === "passed") return "text-green-4";
   if (status === "failed") return "text-red-5";
@@ -706,11 +748,50 @@ const getElementFillColor = (idx: number) => {
 
 const getElementFillWidth = (idx: number) => elementFills.value[idx] || 0;
 
-// --- Lifecycle ---
+// --- Lifecycle & Persistence ---
+const STORAGE_KEY = "cw-trainer-settings";
+
 onMounted(() => {
+  // Load saved settings
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (parsed.callsign) callsign.value = parsed.callsign;
+      if (parsed.scriptId) {
+        const found = scripts.find((s) => s.id === parsed.scriptId);
+        if (found) selectedScript.value = found;
+      }
+      if (parsed.charWpm) charWpm.value = parsed.charWpm;
+      if (parsed.effWpm) effWpm.value = parsed.effWpm;
+      if (parsed.toneFreq) toneFreq.value = parsed.toneFreq;
+      if (parsed.tolerance) tolerance.value = parsed.tolerance;
+    } catch (e) {
+      console.warn("Failed to parse settings", e);
+    }
+  }
+
   window.addEventListener("keydown", handleGlobalKeydown);
   window.addEventListener("keyup", handleGlobalKeyup);
 });
+
+// Save settings when changed
+watch(
+  [callsign, selectedScript, charWpm, effWpm, toneFreq, tolerance],
+  () => {
+    const settings = {
+      callsign: callsign.value,
+      scriptId: selectedScript.value.id,
+      charWpm: charWpm.value,
+      effWpm: effWpm.value,
+      toneFreq: toneFreq.value,
+      tolerance: tolerance.value,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+  },
+  { deep: true },
+);
+
 onUnmounted(() => {
   window.removeEventListener("keydown", handleGlobalKeydown);
   window.removeEventListener("keyup", handleGlobalKeyup);
@@ -756,15 +837,36 @@ onUnmounted(() => {
   min-height: 450px;
 }
 
-/* Scalable Active Message Area */
-.active-message-container {
+/* Determinisitc Single-Line Viewport */
+.active-message-viewport {
   width: 100%;
-  text-align: center;
-  font-size: clamp(1.5rem, 4vw, 3rem);
+  text-align: left;
+  white-space: nowrap;
+  overflow-x: hidden;
+  font-size: clamp(2rem, 5vw, 4rem);
   font-family: "Courier New", Courier, monospace;
   font-weight: 900;
-  line-height: 2;
-  word-wrap: break-word;
+
+  /* Applies a slick fade-to-black on the edges of the scrolling text */
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 15%,
+    black 85%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 15%,
+    black 85%,
+    transparent 100%
+  );
+}
+
+.viewport-spacer {
+  display: inline-block;
+  width: 50%; /* Allows the first and last letters to reach the center of the viewport */
 }
 
 .active-message-char {
@@ -772,8 +874,7 @@ onUnmounted(() => {
     color 0.2s,
     background-color 0.2s;
   display: inline-block;
-  /* Applying uniform physical size permanently eliminates layout shifts */
-  margin: 0 2px;
+  margin: 0 4px;
   padding: 4px 8px;
   border-radius: 8px;
 }
@@ -781,7 +882,6 @@ onUnmounted(() => {
 .word-space {
   width: 0.6em;
 }
-
 .text-transparent {
   color: transparent;
 }
