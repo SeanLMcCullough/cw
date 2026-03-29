@@ -1,136 +1,153 @@
 <template>
-  <q-layout view="hHh lpR fFf" class="bg-grey-1">
+  <q-layout view="hHh lpR fFf" class="bg-dark text-white app-layout">
     <q-page-container>
       <q-page class="window-height flex flex-center q-pa-md">
-        <div class="full-width" style="max-width: 1200px">
-          <q-card v-if="appState === 'SETUP'" class="q-pa-lg shadow-2" bordered>
-            <q-card-section class="text-center">
-              <h4 class="text-h4 q-mt-none q-mb-md">
-                VK Farnsworth CW Trainer
-              </h4>
-              <p class="text-subtitle1 text-grey-8">
-                Configure your session parameters
-              </p>
-            </q-card-section>
-
-            <q-card-section class="row q-col-gutter-md">
-              <div class="col-12 col-md-6">
-                <q-input
-                  v-model="callsign"
-                  label="Your Callsign (VK only)"
-                  outlined
-                  :rules="[
-                    (val) =>
-                      /^VK[0-9][A-Z]{1,4}$/i.test(val) ||
-                      'Must be a valid VK callsign',
-                  ]"
-                  autocapitalize="characters"
-                />
-              </div>
-              <div class="col-12 col-md-6">
-                <q-select
-                  v-model="selectedScript"
-                  :options="scripts"
-                  option-label="title"
-                  label="Select Practice Script"
-                  outlined
-                />
-              </div>
-
-              <div class="col-12 col-md-6">
-                <div class="text-caption">
-                  Character Speed (WPM): {{ charWpm }}
+        <div class="full-width column q-gutter-y-lg" style="max-width: 1200px">
+          <q-card
+            class="bg-grey-10 text-white flat bordered-custom rounded-custom q-pa-lg"
+          >
+            <q-card-section class="row q-col-gutter-lg items-center">
+              <div class="col-12 col-md-6 column q-gutter-y-md">
+                <div class="text-h6 text-grey-4 q-mb-xs">
+                  Session Parameters
                 </div>
-                <q-slider
-                  v-model="charWpm"
-                  :min="10"
-                  :max="40"
-                  :step="1"
-                  label
+                <div class="row q-gutter-x-md">
+                  <q-input
+                    v-model="callsign"
+                    label="Your Callsign"
+                    dark
+                    outlined
+                    class="col"
+                    :disable="isRunning"
+                    :rules="[
+                      (val) =>
+                        /^VK[0-9][A-Z]{1,4}$/i.test(val) || 'VK calls only',
+                    ]"
+                    autocapitalize="characters"
+                  />
+                  <q-select
+                    v-model="selectedScript"
+                    :options="scripts"
+                    option-label="title"
+                    label="Practice Script"
+                    dark
+                    outlined
+                    class="col"
+                    :disable="isRunning"
+                  />
+                </div>
+                <div class="row q-gutter-x-lg">
+                  <div class="col">
+                    <div class="text-caption text-grey-5">
+                      Char Speed: {{ charWpm }} WPM
+                    </div>
+                    <q-slider
+                      v-model="charWpm"
+                      :min="10"
+                      :max="40"
+                      :step="1"
+                      dark
+                      color="primary"
+                      :disable="isRunning"
+                    />
+                  </div>
+                  <div class="col">
+                    <div class="text-caption text-grey-5">
+                      Effective Speed: {{ effWpm }} WPM
+                    </div>
+                    <q-slider
+                      v-model="effWpm"
+                      :min="5"
+                      :max="charWpm"
+                      :step="1"
+                      dark
+                      color="primary"
+                      :disable="isRunning"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-12 col-md-4 column q-gutter-y-md">
+                <div class="text-h6 text-grey-4 q-mb-xs">Live Tuning</div>
+                <div>
+                  <div class="text-caption text-grey-5">
+                    Tone Frequency: {{ toneFreq }} Hz
+                  </div>
+                  <q-slider
+                    v-model="toneFreq"
+                    :min="400"
+                    :max="1000"
+                    :step="10"
+                    dark
+                    color="secondary"
+                  />
+                </div>
+                <div>
+                  <div class="text-caption text-grey-5">
+                    Tolerance (±): {{ (tolerance * 100).toFixed(0) }}%
+                  </div>
+                  <q-slider
+                    v-model="tolerance"
+                    :min="0.1"
+                    :max="0.8"
+                    :step="0.05"
+                    dark
+                    color="negative"
+                  />
+                </div>
+              </div>
+
+              <div class="col-12 col-md-2 flex flex-center">
+                <q-btn
+                  v-if="!isRunning"
+                  size="xl"
                   color="primary"
+                  class="full-width rounded-custom text-weight-bold"
+                  label="START"
+                  @click="startSession"
+                  :disable="!isValidSetup"
                 />
-              </div>
-              <div class="col-12 col-md-6">
-                <div class="text-caption">
-                  Effective Speed (WPM): {{ effWpm }}
-                </div>
-                <q-slider
-                  v-model="effWpm"
-                  :min="5"
-                  :max="charWpm"
-                  :step="1"
-                  label
-                  color="primary"
-                />
-              </div>
-
-              <div class="col-12 col-md-6">
-                <div class="text-caption">
-                  Tone Frequency (Hz): {{ toneFreq }}
-                </div>
-                <q-slider
-                  v-model="toneFreq"
-                  :min="400"
-                  :max="1000"
-                  :step="10"
-                  label
-                  color="secondary"
-                />
-              </div>
-              <div class="col-12 col-md-6">
-                <div class="text-caption">
-                  Tolerance Threshold (%): {{ tolerance * 100 }}
-                </div>
-                <q-slider
-                  v-model="tolerance"
-                  :min="0.1"
-                  :max="0.5"
-                  :step="0.05"
-                  label
+                <q-btn
+                  v-else
+                  size="xl"
                   color="negative"
+                  class="full-width rounded-custom text-weight-bold"
+                  label="STOP"
+                  @click="stopSession"
                 />
               </div>
             </q-card-section>
-
-            <q-card-actions align="center" class="q-mt-md">
-              <q-btn
-                size="lg"
-                color="primary"
-                label="Start Session"
-                @click="startSession"
-                :disable="!isValidSetup"
-              />
-            </q-card-actions>
           </q-card>
 
           <div
             v-if="appState === 'RUNNING'"
-            class="column items-center full-width"
+            class="column items-center full-width q-gutter-y-lg"
           >
-            <q-card class="full-width q-mb-lg shadow-1" bordered>
-              <q-card-section class="text-h5 text-center script-container">
+            <q-card
+              class="full-width bg-grey-10 flat bordered-custom rounded-custom"
+            >
+              <q-card-section
+                class="text-h4 text-center script-container q-pa-lg"
+              >
                 <div
                   v-for="(line, index) in compiledScript"
                   :key="index"
                   :class="{
-                    'text-grey-4': index < currentLineIndex,
-                    'text-primary text-weight-bold': index === currentLineIndex,
-                    'text-grey-6': index > currentLineIndex,
+                    'text-grey-7': index < currentLineIndex,
+                    'text-white': index === currentLineIndex,
+                    'text-grey-8': index > currentLineIndex,
                   }"
                   class="q-my-sm transition-colors"
                 >
                   <span
                     v-if="line.speaker === 'RX'"
-                    class="text-subtitle2 q-mr-sm"
+                    class="text-h5 q-mr-md text-secondary"
                     >[RX]</span
                   >
-                  <span v-else class="text-subtitle2 q-mr-sm text-secondary"
-                    >[TX]</span
-                  >
+                  <span v-else class="text-h5 q-mr-md text-primary">[TX]</span>
 
-                  <span
-                    v-if="index === currentLineIndex && line.speaker === 'TX'"
-                  >
+                  <span v-if="index === currentLineIndex">
                     <span
                       v-for="(char, charIdx) in line.text"
                       :key="charIdx"
@@ -145,25 +162,29 @@
             </q-card>
 
             <q-card
-              v-if="isUserTurn"
-              class="full-width shadow-2 q-pa-md"
-              bordered
+              class="full-width bg-grey-10 flat bordered-custom rounded-custom q-pa-xl text-center relative-position"
             >
-              <div class="text-center text-h6 q-mb-md">
-                Key Current Letter:
-                <strong class="text-uppercase text-primary text-h4">{{
-                  currentChar
+              <div class="text-h5 q-mb-lg text-grey-4">
+                <span v-if="isUserTurn">Your Turn to Key: </span>
+                <span v-else class="text-secondary text-weight-bold"
+                  >Receiving Transmission:
+                </span>
+                <strong class="text-uppercase text-white text-h2 q-ml-sm">{{
+                  currentChar === " " ? "SPACE" : currentChar
                 }}</strong>
               </div>
 
-              <div class="row justify-center items-center q-gutter-x-sm">
+              <div
+                class="row justify-center items-center q-gutter-x-md"
+                style="min-height: 80px"
+              >
                 <div
                   v-for="(element, elIdx) in currentExpectedElements"
                   :key="elIdx"
-                  class="morse-element-container bg-grey-3 rounded-borders overflow-hidden"
+                  class="morse-element-container bg-grey-9 rounded-custom overflow-hidden"
                   :style="{
-                    width: element === '.' ? '40px' : '100px',
-                    height: '30px',
+                    width: element === '.' ? '60px' : '160px',
+                    height: '40px',
                   }"
                 >
                   <div
@@ -174,58 +195,43 @@
                 </div>
               </div>
 
-              <div class="text-center q-mt-xl text-grey-6">
-                Tap or hold SPACEBAR, or click/touch here to key.
+              <div class="q-mt-xl text-h6 text-grey-6">
+                <span v-if="isUserTurn"
+                  >Tap or hold SPACEBAR, or touch here to key.</span
+                >
+                <span v-else class="text-secondary"
+                  >Listen to the timing and cadence...</span
+                >
               </div>
-            </q-card>
 
-            <q-card
-              v-else
-              class="full-width shadow-2 q-pa-xl text-center bg-grey-2"
-              bordered
-            >
-              <q-spinner-bars color="primary" size="3em" />
-              <div class="text-h6 q-mt-md text-grey-8">
-                Receiving transmission...
-              </div>
+              <div
+                v-if="isUserTurn"
+                class="absolute-top-left full-width full-height z-top cursor-pointer"
+                @mousedown="handleKeydown"
+                @mouseup="handleKeyup"
+                @touchstart.prevent="handleKeydown"
+                @touchend.prevent="handleKeyup"
+              ></div>
             </q-card>
-
-            <div
-              v-if="isUserTurn"
-              class="fixed-center full-width full-height z-top cursor-pointer"
-              style="opacity: 0"
-              @mousedown="handleKeydown"
-              @mouseup="handleKeyup"
-              @touchstart.prevent="handleKeydown"
-              @touchend.prevent="handleKeyup"
-            ></div>
           </div>
 
           <q-card
             v-if="appState === 'FINISHED'"
-            class="q-pa-lg shadow-2 text-center"
-            bordered
+            class="bg-grey-10 flat bordered-custom rounded-custom q-pa-xl text-center"
           >
-            <q-card-section>
-              <h2 class="text-h2 q-mb-sm">Session Complete</h2>
-              <div class="text-h4 q-mb-lg">
-                Grade:
-                <span :class="gradeColor" class="text-weight-bold">{{
-                  finalGrade
-                }}</span>
-              </div>
-              <p class="text-h6 text-grey-8">
-                Accuracy: {{ ((score / totalChars) * 100).toFixed(1) }}%
-              </p>
-            </q-card-section>
-            <q-card-actions align="center">
-              <q-btn
-                size="lg"
-                color="primary"
-                label="Practice Again"
-                @click="resetSession"
-              />
-            </q-card-actions>
+            <h2 class="text-h2 q-mb-md text-white">Session Complete</h2>
+            <div class="text-h3 q-mb-lg">
+              Grade:
+              <span :class="gradeColor" class="text-weight-bold">{{
+                finalGrade
+              }}</span>
+            </div>
+            <p class="text-h5 text-grey-5">
+              Accuracy:
+              {{
+                totalChars > 0 ? ((score / totalChars) * 100).toFixed(1) : 0
+              }}%
+            </p>
           </q-card>
         </div>
       </q-page>
@@ -234,10 +240,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 
 // --- Types & Dictionary ---
-type AppState = "SETUP" | "RUNNING" | "FINISHED";
+type AppState = "IDLE" | "RUNNING" | "FINISHED";
 type Speaker = "TX" | "RX";
 interface ScriptLine {
   speaker: Speaker;
@@ -288,7 +294,6 @@ const morseDict: Record<string, string> = {
   "9": "----.",
   "/": "-..-.",
   "?": "..--..",
-  " ": " ", // Space handled specially
 };
 
 // --- Scripts Data ---
@@ -312,43 +317,30 @@ const scripts: ScriptDef[] = [
       { speaker: "TX", text: "VK2POTA TU UR 599 599 PARK VK-0001 73 EE" },
     ],
   },
-  {
-    id: "adv-cq",
-    title: "Advanced General (Ragchew Intro)",
-    lines: [
-      { speaker: "TX", text: "CQ CQ DE {CALL} K" },
-      { speaker: "RX", text: "{CALL} DE VK3BEE UR 579 579 NAME BOB BK" },
-      { speaker: "TX", text: "VK3BEE TU BOB UR 599 599 QTH MELB HW? BK" },
-      { speaker: "RX", text: "SOLID CPY TU 73" },
-      { speaker: "TX", text: "73 EE" },
-    ],
-  },
 ];
 
-// --- State: Configuration ---
-const appState = ref<AppState>("SETUP");
+// --- State ---
+const appState = ref<AppState>("IDLE");
 const callsign = ref("VK4TEST");
 const selectedScript = ref<ScriptDef>(scripts[0]);
 const charWpm = ref(20);
 const effWpm = ref(10);
 const toneFreq = ref(700);
-const tolerance = ref(0.3); // 30% timing tolerance threshold
+const tolerance = ref(0.3); // 30% timing tolerance
 
-// --- State: Game Loop ---
 const compiledScript = ref<ScriptLine[]>([]);
 const currentLineIndex = ref(0);
 const currentCharIndex = ref(0);
-const currentElementIndex = ref(0); // Index within the A-Z morse breakdown
+const currentElementIndex = ref(0);
 const isUserTurn = ref(false);
 
-// State: Scoring & Visuals
 const charStatuses = ref<("pending" | "active" | "passed" | "failed")[]>([]);
-const elementFills = ref<number[]>([]); // 0 to 100 percentage
-const elementResults = ref<("pending" | "passed" | "failed")[]>([]);
+const elementFills = ref<number[]>([]);
+const elementResults = ref<("pending" | "passed" | "failed" | "rx")[]>([]);
 const score = ref(0);
 const totalChars = ref(0);
 
-// State: Timing tracking
+// Audio & Timing Refs
 let audioCtx: AudioContext | null = null;
 let oscillator: OscillatorNode | null = null;
 let gainNode: GainNode | null = null;
@@ -356,7 +348,8 @@ let keydownTime = 0;
 let animationFrameId: number | null = null;
 let isKeyDown = false;
 
-// --- Computed Properties ---
+// --- Computed ---
+const isRunning = computed(() => appState.value === "RUNNING");
 const isValidSetup = computed(
   () => /^VK[0-9][A-Z]{1,4}$/i.test(callsign.value) && selectedScript.value,
 );
@@ -375,7 +368,6 @@ const currentExpectedElements = computed(() => {
   return code ? code.split("") : [];
 });
 
-// Strict math: dot duration in ms based on CHARACTER WPM
 const dotMs = computed(() => 1200 / charWpm.value);
 const dashMs = computed(() => dotMs.value * 3);
 
@@ -389,26 +381,24 @@ const finalGrade = computed(() => {
   if (pct >= 0.6) return "D";
   return "E";
 });
-
-const gradeColor = computed(() => {
-  const map: Record<string, string> = {
-    S: "text-purple",
-    A: "text-green",
-    B: "text-blue",
-    C: "text-orange",
-    D: "text-deep-orange",
-    E: "text-red",
-  };
-  return map[finalGrade.value];
-});
+const gradeColor = computed(
+  () =>
+    ({
+      S: "text-purple-4",
+      A: "text-green-4",
+      B: "text-blue-4",
+      C: "text-orange-4",
+      D: "text-deep-orange-4",
+      E: "text-red-5",
+    })[finalGrade.value],
+);
 
 // --- Audio Engine ---
 const initAudio = () => {
-  if (!audioCtx) {
+  if (!audioCtx)
     audioCtx = new (
       window.AudioContext || (window as any).webkitAudioContext
     )();
-  }
 };
 
 const startTone = () => {
@@ -417,14 +407,10 @@ const startTone = () => {
 
   oscillator = audioCtx.createOscillator();
   gainNode = audioCtx.createGain();
-
   oscillator.type = "sine";
   oscillator.frequency.value = toneFreq.value;
-
-  // Envelope to prevent clicks (Attack)
   gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
   gainNode.gain.setTargetAtTime(1, audioCtx.currentTime, 0.005);
-
   oscillator.connect(gainNode);
   gainNode.connect(audioCtx.destination);
   oscillator.start();
@@ -432,45 +418,45 @@ const startTone = () => {
 
 const stopTone = () => {
   if (!audioCtx || !gainNode || !oscillator) return;
-
-  // Envelope to prevent clicks (Release)
   gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 0.005);
-
   const oscToStop = oscillator;
-  setTimeout(() => oscToStop.stop(), 50); // wait for release decay
-
+  setTimeout(() => oscToStop.stop(), 50);
   oscillator = null;
   gainNode = null;
 };
 
+// Live update tone freq if running
+watch(toneFreq, (newFreq) => {
+  if (oscillator)
+    oscillator.frequency.setValueAtTime(newFreq, audioCtx!.currentTime);
+});
+
 // --- Game Logic ---
 const startSession = () => {
   initAudio();
-
-  // Compile script (replace {CALL})
   compiledScript.value = selectedScript.value.lines.map((line) => ({
     speaker: line.speaker,
     text: line.text.replace(/\{CALL\}/g, callsign.value.toUpperCase()),
   }));
-
   currentLineIndex.value = 0;
   score.value = 0;
   totalChars.value = 0;
   appState.value = "RUNNING";
-
   processLine();
 };
 
-const resetSession = () => {
-  appState.value = "SETUP";
+const stopSession = () => {
+  appState.value = "IDLE";
+  stopTone();
+  if (animationFrameId) cancelAnimationFrame(animationFrameId);
 };
 
 const processLine = () => {
+  if (appState.value !== "RUNNING") return;
   if (currentLineIndex.value >= compiledScript.value.length) {
     appState.value = "FINISHED";
     return;
   }
-
   const line = compiledScript.value[currentLineIndex.value];
   if (line.speaker === "TX") {
     isUserTurn.value = true;
@@ -478,29 +464,28 @@ const processLine = () => {
     setupCharState();
   } else {
     isUserTurn.value = false;
-    simulateRX();
+    playRXLine();
   }
 };
 
 const setupCharState = () => {
   const line = compiledScript.value[currentLineIndex.value];
 
-  // Skip spaces automatically
-  while (
-    currentCharIndex.value < line.text.length &&
-    line.text[currentCharIndex.value] === " "
-  ) {
-    currentCharIndex.value++;
+  if (isUserTurn.value) {
+    // Skip spaces automatically during TX
+    while (
+      currentCharIndex.value < line.text.length &&
+      line.text[currentCharIndex.value] === " "
+    ) {
+      currentCharIndex.value++;
+    }
+    if (currentCharIndex.value >= line.text.length) {
+      currentLineIndex.value++;
+      setTimeout(processLine, 1000);
+      return;
+    }
   }
 
-  if (currentCharIndex.value >= line.text.length) {
-    // Line finished
-    currentLineIndex.value++;
-    setTimeout(processLine, 1000);
-    return;
-  }
-
-  // Init visual state for new character
   if (charStatuses.value.length !== line.text.length) {
     charStatuses.value = Array(line.text.length).fill("pending");
   }
@@ -512,18 +497,16 @@ const setupCharState = () => {
   elementResults.value = Array(expectedCount).fill("pending");
 };
 
-// --- Keying Handlers ---
+// --- Keying Handlers (TX) ---
 const handleGlobalKeydown = (e: KeyboardEvent) => {
-  if (e.repeat) return; // Ignore browser auto-repeat!
-
-  if (e.code === "Space" && appState.value === "RUNNING" && isUserTurn.value) {
+  if (e.repeat) return;
+  if (e.code === "Space" && isRunning.value && isUserTurn.value) {
     e.preventDefault();
     handleKeydown();
   }
 };
-
 const handleGlobalKeyup = (e: KeyboardEvent) => {
-  if (e.code === "Space" && appState.value === "RUNNING" && isUserTurn.value) {
+  if (e.code === "Space" && isRunning.value && isUserTurn.value) {
     e.preventDefault();
     handleKeyup();
   }
@@ -534,7 +517,6 @@ const handleKeydown = () => {
   isKeyDown = true;
   keydownTime = performance.now();
   startTone();
-
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
   animationFrameId = requestAnimationFrame(updateVisualizer);
 };
@@ -543,25 +525,22 @@ const handleKeyup = () => {
   if (!isKeyDown || !isUserTurn.value) return;
   isKeyDown = false;
   stopTone();
-
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
   evaluateElement();
 };
 
 const updateVisualizer = () => {
   if (!isKeyDown) return;
-
   const elapsed = performance.now() - keydownTime;
   const expectedElement =
     currentExpectedElements.value[currentElementIndex.value];
   const targetMs = expectedElement === "." ? dotMs.value : dashMs.value;
 
-  // Calculate percentage filled
   let pct = (elapsed / targetMs) * 100;
   elementFills.value[currentElementIndex.value] = Math.min(pct, 100);
 
-  // Auto-fail / timeout if held too long (Target + Tolerance)
-  if (elapsed > targetMs * (1 + tolerance.value)) {
+  // Fail-safe timeout: only auto-kill if held absurdly long (3x target duration)
+  if (elapsed > targetMs * 3) {
     handleKeyup();
   } else {
     animationFrameId = requestAnimationFrame(updateVisualizer);
@@ -574,20 +553,17 @@ const evaluateElement = () => {
     currentExpectedElements.value[currentElementIndex.value];
   const targetMs = expectedElement === "." ? dotMs.value : dashMs.value;
 
+  // Mathematical threshold logic (works for both too short and too long)
   const errorRatio = Math.abs(elapsed - targetMs) / targetMs;
   const passed = errorRatio <= tolerance.value;
 
-  // Record the result of this specific dot/dash
   elementResults.value[currentElementIndex.value] = passed
     ? "passed"
     : "failed";
-
-  // Always advance to the next expected element, even if failed
   currentElementIndex.value++;
 
-  // If we have finished all elements for this character
+  // Check if character is fully keyed
   if (currentElementIndex.value >= currentExpectedElements.value.length) {
-    // Evaluate if the whole character was perfect
     const allElementsPassed = elementResults.value.every(
       (res) => res === "passed",
     );
@@ -595,10 +571,7 @@ const evaluateElement = () => {
       ? "passed"
       : "failed";
 
-    if (allElementsPassed) {
-      score.value++;
-    }
-
+    if (allElementsPassed) score.value++;
     totalChars.value++;
     setTimeout(advanceToNextChar, 300);
   }
@@ -610,47 +583,88 @@ const advanceToNextChar = () => {
 };
 
 // --- RX Simulation ---
-const simulateRX = async () => {
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+const playRXLine = async () => {
   const line = compiledScript.value[currentLineIndex.value];
-  const charSpeedMs = dotMs.value;
-  const effSpeedRatio = charWpm.value / effWpm.value; // rough spacing multiplier
+  const farnsworthRatio = charWpm.value / effWpm.value;
 
-  // Just a simple visual delay simulation for the prototype RX phase
-  const estimatedRxTime = line.text.length * (charSpeedMs * 10 * effSpeedRatio);
+  for (let i = 0; i < line.text.length; i++) {
+    if (appState.value !== "RUNNING") return; // Abort if stopped mid-RX
 
-  await new Promise((resolve) => setTimeout(resolve, estimatedRxTime));
+    currentCharIndex.value = i;
+    const char = line.text[i];
+
+    if (char === " ") {
+      await sleep(dashMs.value * farnsworthRatio * 2); // Word space
+      continue;
+    }
+
+    const code = morseDict[char];
+    if (!code) continue;
+
+    setupCharState();
+
+    for (let e = 0; e < code.length; e++) {
+      if (appState.value !== "RUNNING") return;
+      currentElementIndex.value = e;
+      const duration = code[e] === "." ? dotMs.value : dashMs.value;
+
+      startTone();
+      elementResults.value[e] = "rx";
+      await playRXElementFill(duration, e);
+      stopTone();
+
+      await sleep(dotMs.value); // Standard gap between elements
+    }
+
+    charStatuses.value[i] = "passed";
+    await sleep(dashMs.value * farnsworthRatio); // Farnsworth gap between chars
+  }
 
   currentLineIndex.value++;
   processLine();
+};
+
+const playRXElementFill = (durationMs: number, index: number) => {
+  return new Promise<void>((resolve) => {
+    const start = performance.now();
+    const animate = (time: number) => {
+      if (appState.value !== "RUNNING") return resolve();
+      const elapsed = time - start;
+      elementFills.value[index] = Math.min((elapsed / durationMs) * 100, 100);
+      if (elapsed < durationMs) requestAnimationFrame(animate);
+      else resolve();
+    };
+    requestAnimationFrame(animate);
+  });
 };
 
 // --- Helper Functions for UI ---
 const getCharStatusClass = (idx: number) => {
   const status = charStatuses.value[idx];
   if (status === "active")
-    return "text-primary bg-blue-1 rounded-borders q-px-xs";
-  if (status === "passed") return "text-positive";
-  if (status === "failed") return "text-negative";
-  return "text-grey-5";
+    return "text-primary bg-grey-9 rounded-borders q-px-sm py-xs";
+  if (status === "passed") return "text-green-4";
+  if (status === "failed") return "text-red-5";
+  return "text-grey-7";
 };
 
 const getElementFillColor = (idx: number) => {
   const res = elementResults.value[idx];
-  if (res === "passed") return "bg-positive";
-  if (res === "failed") return "bg-negative";
+  if (res === "passed") return "bg-green-5";
+  if (res === "failed") return "bg-red-5";
+  if (res === "rx") return "bg-secondary"; // Teal for RX playback
   return "bg-primary";
 };
 
-const getElementFillWidth = (idx: number) => {
-  return elementFills.value[idx] || 0;
-};
+const getElementFillWidth = (idx: number) => elementFills.value[idx] || 0;
 
 // --- Lifecycle ---
 onMounted(() => {
   window.addEventListener("keydown", handleGlobalKeydown);
   window.addEventListener("keyup", handleGlobalKeyup);
 });
-
 onUnmounted(() => {
   window.removeEventListener("keydown", handleGlobalKeydown);
   window.removeEventListener("keyup", handleGlobalKeyup);
@@ -659,17 +673,28 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* Dark Mode Overrides and Layout Styling */
+.app-layout {
+  font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+.rounded-custom {
+  border-radius: 24px !important;
+}
+.bordered-custom {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
 .transition-colors {
-  transition: color 0.3s ease;
+  transition: all 0.3s ease;
 }
 .script-container {
-  font-family: monospace;
-  font-size: 1.5rem;
-  line-height: 2;
+  font-family: "Courier New", Courier, monospace;
+  font-weight: bold;
+  line-height: 1.8;
+  letter-spacing: 2px;
 }
 .morse-element-container {
   position: relative;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 .morse-element-fill {
   transition: background-color 0.2s;
