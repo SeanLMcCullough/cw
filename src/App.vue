@@ -1,11 +1,11 @@
 <template>
   <q-layout view="hHh lpR fFf" class="bg-dark text-white app-layout">
     <q-page-container>
-      <q-page class="window-height flex flex-center q-pa-md">
-        <div
-          class="full-width column q-gutter-y-lg"
-          style="max-width: 1200px; height: 100%"
-        >
+      <q-page
+        class="q-pa-md flex justify-center"
+        :class="appState === 'IDLE' ? 'items-center' : 'items-start'"
+      >
+        <div class="full-width column q-gutter-y-lg" style="max-width: 1200px">
           <q-card
             class="bg-grey-10 text-white flat bordered-custom rounded-custom q-pa-lg shrink-0"
           >
@@ -23,10 +23,6 @@
                     class="col"
                     :disable="isRunning"
                     autocapitalize="characters"
-                    :rules="[
-                      (val) =>
-                        /^VK[0-9][A-Z]{1,4}$/i.test(val) || 'VK calls only',
-                    ]"
                   />
                   <q-select
                     v-model="selectedScript"
@@ -109,7 +105,7 @@
                   class="full-width rounded-custom text-weight-bold"
                   label="START"
                   @click="startSession"
-                  :disable="!isValidSetup"
+                  :disable="!callsign || !selectedScript"
                 />
                 <q-btn
                   v-else
@@ -123,46 +119,7 @@
             </q-card-section>
           </q-card>
 
-          <div
-            v-if="appState === 'RUNNING'"
-            class="col column full-width q-gutter-y-lg no-wrap"
-          >
-            <q-card
-              class="full-width bg-grey-10 flat bordered-custom rounded-custom history-window q-pa-md"
-              ref="historyScrollRef"
-            >
-              <q-card-section class="text-h5 script-history-text">
-                <div
-                  v-for="(line, index) in historyLines"
-                  :key="'hist-' + index"
-                  class="q-mb-sm text-grey-6 fade-in"
-                >
-                  <span
-                    :class="
-                      line.speaker === 'RX' ? 'text-secondary' : 'text-primary'
-                    "
-                    >[{{ line.speaker }}]</span
-                  >
-                  {{ line.text }}
-                </div>
-
-                <div
-                  v-if="compiledScript[currentLineIndex]"
-                  class="q-mb-sm text-white fade-in"
-                >
-                  <span :class="isUserTurn ? 'text-primary' : 'text-secondary'">
-                    [{{ isUserTurn ? "TX" : "RX" }}]
-                  </span>
-                  {{
-                    compiledScript[currentLineIndex].text.substring(
-                      0,
-                      revealedLength,
-                    )
-                  }}<span class="cursor-blink">_</span>
-                </div>
-              </q-card-section>
-            </q-card>
-
+          <template v-if="appState === 'RUNNING'">
             <q-card
               class="full-width bg-grey-10 flat bordered-custom rounded-custom keying-window relative-position"
             >
@@ -175,9 +132,12 @@
                       ?.text"
                     :key="charIdx"
                     class="active-message-char fade-in"
-                    :class="getCharStatusClass(charIdx)"
+                    :class="[
+                      getCharStatusClass(charIdx),
+                      char === ' ' ? 'word-space' : '',
+                    ]"
                   >
-                    {{ char }}
+                    {{ char === " " ? "\u00A0" : char }}
                   </span>
                 </div>
 
@@ -233,11 +193,47 @@
                 @touchend.prevent="handleKeyup"
               ></div>
             </q-card>
-          </div>
+
+            <q-card
+              class="full-width bg-grey-10 flat bordered-custom rounded-custom history-window q-pa-md"
+            >
+              <q-card-section class="text-h5 script-history-text">
+                <div
+                  v-if="compiledScript[currentLineIndex]"
+                  class="q-mb-md text-white fade-in text-weight-bolder"
+                  style="font-size: 1.2em"
+                >
+                  <span :class="isUserTurn ? 'text-primary' : 'text-secondary'">
+                    [{{ isUserTurn ? "TX" : "RX" }}]
+                  </span>
+                  {{
+                    compiledScript[currentLineIndex].text.substring(
+                      0,
+                      revealedLength,
+                    )
+                  }}<span class="cursor-blink">_</span>
+                </div>
+
+                <div
+                  v-for="(line, index) in reversedHistoryLines"
+                  :key="'hist-' + index"
+                  class="q-mb-sm text-grey-6 fade-in"
+                >
+                  <span
+                    :class="
+                      line.speaker === 'RX' ? 'text-secondary' : 'text-primary'
+                    "
+                    >[{{ line.speaker }}]</span
+                  >
+                  {{ line.text }}
+                </div>
+              </q-card-section>
+            </q-card>
+          </template>
 
           <q-card
             v-if="appState === 'FINISHED'"
-            class="bg-grey-10 flat bordered-custom rounded-custom q-pa-xl text-center col flex flex-center column"
+            class="bg-grey-10 flat bordered-custom rounded-custom q-pa-xl text-center"
           >
             <h2 class="text-h2 q-mb-md text-white">Session Complete</h2>
             <div class="text-h3 q-mb-lg">
@@ -252,6 +248,13 @@
                 totalChars > 0 ? ((score / totalChars) * 100).toFixed(1) : 0
               }}%
             </p>
+            <q-btn
+              class="q-mt-lg rounded-custom"
+              size="lg"
+              color="primary"
+              label="Back to Setup"
+              @click="appState = 'IDLE'"
+            />
           </q-card>
         </div>
       </q-page>
@@ -260,7 +263,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 
 // --- Types & Dictionary ---
 type AppState = "IDLE" | "RUNNING" | "FINISHED";
@@ -340,7 +343,7 @@ const scripts: ScriptDef[] = [
 
 // --- State ---
 const appState = ref<AppState>("IDLE");
-const callsign = ref("VK4TEST");
+const callsign = ref("VK4ABC");
 const selectedScript = ref<ScriptDef>(scripts[0]);
 const charWpm = ref(20);
 const effWpm = ref(10);
@@ -349,8 +352,7 @@ const tolerance = ref(0.3);
 
 const compiledScript = ref<ScriptLine[]>([]);
 const historyLines = ref<ScriptLine[]>([]);
-const historyScrollRef = ref<HTMLElement | null>(null);
-const revealedLength = ref(0); // Tracks chars revealed in the top history box
+const revealedLength = ref(0);
 
 const currentLineIndex = ref(0);
 const currentCharIndex = ref(0);
@@ -375,9 +377,8 @@ let isKeyDown = false;
 
 // --- Computed ---
 const isRunning = computed(() => appState.value === "RUNNING");
-const isValidSetup = computed(
-  () => /^VK[0-9][A-Z]{1,4}$/i.test(callsign.value) && selectedScript.value,
-);
+
+const reversedHistoryLines = computed(() => [...historyLines.value].reverse());
 
 const currentChar = computed(() => {
   if (!compiledScript.value[currentLineIndex.value]) return "";
@@ -417,7 +418,7 @@ const gradeColor = computed(
     })[finalGrade.value],
 );
 
-// --- Audio Engine (Click-Free Continuous Oscillator) ---
+// --- Audio Engine ---
 const initAudio = () => {
   if (!audioCtx) {
     audioCtx = new (
@@ -425,11 +426,9 @@ const initAudio = () => {
     )();
     oscillator = audioCtx.createOscillator();
     gainNode = audioCtx.createGain();
-
     oscillator.type = "sine";
     oscillator.frequency.value = toneFreq.value;
-    gainNode.gain.value = 0; // Start silent
-
+    gainNode.gain.value = 0;
     oscillator.connect(gainNode);
     gainNode.connect(audioCtx.destination);
     oscillator.start();
@@ -443,7 +442,6 @@ const toneOn = () => {
   const now = audioCtx.currentTime;
   gainNode.gain.cancelScheduledValues(now);
   gainNode.gain.setValueAtTime(gainNode.gain.value, now);
-  // 10ms ramp up removes the click
   gainNode.gain.linearRampToValueAtTime(1, now + 0.01);
 };
 
@@ -452,7 +450,6 @@ const toneOff = () => {
   const now = audioCtx.currentTime;
   gainNode.gain.cancelScheduledValues(now);
   gainNode.gain.setValueAtTime(gainNode.gain.value, now);
-  // 10ms ramp down removes the click
   gainNode.gain.linearRampToValueAtTime(0, now + 0.01);
 };
 
@@ -491,7 +488,6 @@ const processLine = () => {
   revealedLength.value = 0;
   const line = compiledScript.value[currentLineIndex.value];
 
-  // Pre-fill RX statuses to pending so they fade in
   charStatuses.value = Array(line.text.length).fill("pending");
 
   if (line.speaker === "TX") {
@@ -532,17 +528,7 @@ const setupCharState = () => {
   currentElementIndex.value = 0;
   elementFills.value = Array(expectedCount).fill(0);
   elementResults.value = Array(expectedCount).fill("pending");
-  scrollToBottom();
 };
-
-// --- Scroll & Layout Sync ---
-const scrollToBottom = async () => {
-  await nextTick();
-  if (historyScrollRef.value) {
-    historyScrollRef.value.scrollTop = historyScrollRef.value.scrollHeight;
-  }
-};
-watch([revealedLength, historyLines], scrollToBottom, { deep: true });
 
 // --- Keying Handlers (TX) ---
 const handleGlobalKeydown = (e: KeyboardEvent) => {
@@ -588,11 +574,8 @@ const updateVisualizer = () => {
     100,
   );
 
-  if (elapsed > targetMs * 3) {
-    handleKeyup();
-  } else {
-    animationFrameId = requestAnimationFrame(updateVisualizer);
-  }
+  if (elapsed > targetMs * 3) handleKeyup();
+  else animationFrameId = requestAnimationFrame(updateVisualizer);
 };
 
 const evaluateElement = () => {
@@ -615,9 +598,7 @@ const evaluateElement = () => {
     if (allPassed) score.value++;
     totalChars.value++;
 
-    // Update top box history tracker
     revealedLength.value = currentCharIndex.value + 1;
-
     setTimeout(() => {
       currentCharIndex.value++;
       setupCharState();
@@ -662,11 +643,9 @@ const playRXLine = async () => {
 
       await sleep(dotMs.value);
     }
-
     charStatuses.value[i] = "rx";
     await sleep(dashMs.value * farnsworthRatio);
   }
-
   finishLine();
 };
 
@@ -684,16 +663,16 @@ const playRXElementFill = (durationMs: number, index: number) => {
   });
 };
 
-// --- Helper Functions for UI ---
+// --- Helper Functions ---
 const getCharStatusClass = (idx: number) => {
   const status = charStatuses.value[idx];
   if (status === "active")
-    return "text-dark bg-primary rounded-borders q-px-xs active-bounce";
+    return "text-dark bg-primary rounded-borders q-px-sm py-xs active-bounce";
   if (status === "passed") return "text-green-4";
   if (status === "failed") return "text-red-5";
   if (status === "rx") return "text-secondary";
-  if (isUserTurn.value) return "text-grey-6"; // TX shows future letters dimmed
-  return "text-transparent"; // RX hides future letters
+  if (isUserTurn.value) return "text-grey-6";
+  return "text-transparent";
 };
 
 const getElementFillColor = (idx: number) => {
@@ -732,12 +711,9 @@ onUnmounted(() => {
   transition: all 0.3s ease;
 }
 
-/* History Window (Top Box) */
+/* History Window */
 .history-window {
-  height: 25vh;
   min-height: 150px;
-  overflow-y: auto;
-  scroll-behavior: smooth;
 }
 .script-history-text {
   font-family: "Courier New", Courier, monospace;
@@ -754,29 +730,35 @@ onUnmounted(() => {
   }
 }
 
-/* Keying Window (Bottom Box) */
+/* Keying Window */
 .keying-window {
-  height: 50vh;
-  min-height: 400px;
-  container-type: inline-size;
+  min-height: 450px;
 }
 
 /* Scalable Active Message Area */
 .active-message-container {
   width: 100%;
   text-align: center;
-  /* Fluid font sizing based on container width */
-  font-size: clamp(2rem, 6cqi, 4.5rem);
+  font-size: clamp(1.5rem, 4vw, 3rem);
   font-family: "Courier New", Courier, monospace;
   font-weight: 900;
-  line-height: 1.2;
+  line-height: 2;
   word-wrap: break-word;
 }
+
 .active-message-char {
   transition:
     color 0.2s,
     background-color 0.2s;
+  display: inline-block;
+  margin: 0 2px;
 }
+
+/* FIX: Guaranteed visible space width for our injected non-breaking space */
+.word-space {
+  width: 0.6em;
+}
+
 .text-transparent {
   color: transparent;
 }
@@ -805,15 +787,14 @@ onUnmounted(() => {
 }
 
 .active-bounce {
-  display: inline-block;
   animation: pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 @keyframes pop {
   0% {
-    transform: scale(0.8);
+    transform: translateY(5px);
   }
   100% {
-    transform: scale(1);
+    transform: translateY(0);
   }
 }
 </style>
