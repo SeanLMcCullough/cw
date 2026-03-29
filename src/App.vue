@@ -988,10 +988,6 @@ function evaluateElement() {
 }
 
 // --- RX Simulation ---
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
 async function playRXLine() {
   const line = compiledScript.value[currentLineIndex.value];
   const farnsworthRatio = charWpm.value / effWpm.value;
