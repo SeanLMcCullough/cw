@@ -243,6 +243,7 @@
 
           <template v-if="appState === 'RUNNING'">
             <q-card
+              ref="activeSessionRef"
               class="full-width bg-grey-10 flat bordered-custom rounded-custom keying-window relative-position"
             >
               <div
@@ -548,6 +549,7 @@ const totalChars = ref(0);
 
 // DOM Refs
 const activeMessageRef = ref<HTMLElement | null>(null);
+const activeSessionRef = ref<any>(null); // New ref for scrolling
 
 // Audio Engine Refs
 let audioCtx: AudioContext | null = null;
@@ -716,9 +718,9 @@ watch(toneFreq, (newFreq) => {
 });
 
 // --- Game Logic ---
-function startSession() {
+async function startSession() {
   initAudio();
-  isAdvancedExpanded.value = false;
+  isAdvancedExpanded.value = false; // Collapse settings automatically
   isAcceptingInput.value = false;
   isWaitingForGap.value = false;
   isFirstCharOfTx = true;
@@ -743,6 +745,13 @@ function startSession() {
 
   syncNoiseEngine();
   processLine();
+
+  // Wait for the running template to mount, then scroll it perfectly into view
+  await nextTick();
+  if (activeSessionRef.value) {
+    const el = activeSessionRef.value.$el || activeSessionRef.value;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 }
 
 function stopSession() {
@@ -1219,19 +1228,17 @@ onUnmounted(() => {
   min-height: 150px;
 }
 
-/* --- NEW: Fluid Typography for History Box --- */
+/* Fluid Typography for History Box */
 .script-history-text {
   font-family: "Courier New", Courier, monospace;
   font-weight: bold;
   line-height: 1.6;
   letter-spacing: 1px;
   word-wrap: break-word;
-  /* Base responsive text size for completed lines */
   font-size: clamp(1rem, 3vw, 1.5rem);
 }
 
 .active-history-line {
-  /* Slightly larger, fluid size for the current active line */
   font-size: clamp(1.2rem, 4vw, 1.8rem);
 }
 
