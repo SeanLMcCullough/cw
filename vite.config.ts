@@ -5,7 +5,7 @@ import { fileURLToPath, URL } from "node:url";
 
 export default defineConfig({
   // This is required for GitHub Pages to resolve assets in the /cw directory
-  base: "./",
+  base: "",
   plugins: [
     vue({ template: { transformAssetUrls } }),
     quasar({
