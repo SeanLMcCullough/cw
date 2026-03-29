@@ -11,10 +11,10 @@
             class="column items-center justify-center text-center q-pt-xl q-pb-sm fade-in"
           >
             <img
-              src="/logo.png"
+              src="./assets/vk4slm_cw_trainer_logo_600x600.png"
               alt="CW Trainer Logo"
-              style="width: 100px; height: 100px; border-radius: 20%"
-              class="q-mb-md shadow-5"
+              style="width: 200px; height: 200px; border-radius: 20%"
+              class="q-mb-md"
               onerror="this.style.display = 'none'"
             />
             <h1
