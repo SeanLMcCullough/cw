@@ -281,21 +281,16 @@
                 </div>
 
                 <div
-                  class="column items-stretch transition-all"
-                  style="width: max-content; margin: 0 auto"
+                  class="column items-stretch transition-all visualizer-wrapper"
                 >
                   <div
-                    class="row justify-center items-center transition-all"
-                    style="height: 60px; gap: 16px"
+                    class="row justify-center items-center transition-all morse-row"
                   >
                     <div
                       v-for="(element, elIdx) in currentExpectedElements"
                       :key="elIdx"
-                      class="morse-element-container bg-grey-9 rounded-custom overflow-hidden"
-                      :style="{
-                        width: element === '.' ? '80px' : '200px',
-                        height: '100%',
-                      }"
+                      class="morse-element-container bg-grey-9 rounded-custom overflow-hidden morse-el"
+                      :class="element === '.' ? 'morse-dot' : 'morse-dash'"
                     >
                       <div
                         class="morse-element-fill full-height"
@@ -347,11 +342,10 @@
             <q-card
               class="full-width bg-grey-10 flat bordered-custom rounded-custom history-window q-pa-md"
             >
-              <q-card-section class="text-h5 script-history-text">
+              <q-card-section class="script-history-text">
                 <div
                   v-if="compiledScript[currentLineIndex]"
-                  class="q-mb-md text-white fade-in text-weight-bolder"
-                  style="font-size: 1.2em"
+                  class="q-mb-md text-white fade-in text-weight-bolder active-history-line"
                 >
                   <span :class="isUserTurn ? 'text-primary' : 'text-secondary'">
                     [{{ isUserTurn ? "TX" : "RX" }}]
@@ -1224,12 +1218,23 @@ onUnmounted(() => {
 .history-window {
   min-height: 150px;
 }
+
+/* --- NEW: Fluid Typography for History Box --- */
 .script-history-text {
   font-family: "Courier New", Courier, monospace;
   font-weight: bold;
   line-height: 1.6;
   letter-spacing: 1px;
+  word-wrap: break-word;
+  /* Base responsive text size for completed lines */
+  font-size: clamp(1rem, 3vw, 1.5rem);
 }
+
+.active-history-line {
+  /* Slightly larger, fluid size for the current active line */
+  font-size: clamp(1.2rem, 4vw, 1.8rem);
+}
+
 .cursor-blink {
   animation: blink 1s step-end infinite;
 }
@@ -1313,6 +1318,48 @@ onUnmounted(() => {
 }
 .footer-link:hover {
   color: white;
+}
+
+/* Visualizer Responsiveness */
+.visualizer-wrapper {
+  width: max-content;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.morse-row {
+  height: 60px;
+  gap: 16px;
+  width: 100%;
+  flex-wrap: nowrap !important;
+}
+
+.morse-el {
+  height: 100%;
+  min-width: 0;
+}
+
+.morse-dot {
+  width: 80px;
+  flex-shrink: 1;
+}
+
+.morse-dash {
+  width: 200px;
+  flex-shrink: 1;
+}
+
+@media (max-width: 600px) {
+  .morse-row {
+    height: 40px;
+    gap: 8px;
+  }
+  .morse-dot {
+    width: 40px;
+  }
+  .morse-dash {
+    width: 100px;
+  }
 }
 
 /* Animations */

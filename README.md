@@ -19,14 +19,13 @@ This progressive web application is designed to bridge the gap between rote memo
 - **Dynamic Visual Pacer**: A real-time progress bar guides your keying rhythm so you aren't just reacting, but flowing with the timing.
 
 - **Authentic Radio Effects**:
+  - Click-free, exponentially enveloped CW tones.
 
-      Click-free, exponentially enveloped CW tones.
+  - Simulated HF ionosphere static that properly mutes during your transmit phase (QSK).
 
-      Simulated HF ionosphere static that properly mutes during your transmit phase (QSK).
+  - Slow sine-wave signal fading (QSB) on the receiving station.
 
-      Slow sine-wave signal fading (QSB) on the receiving station.
-
-      Randomized RX frequency offsets so you aren't perfectly zero-beat.
+  - Randomized RX frequency offsets so you aren't perfectly zero-beat.
 
 - **Persistent Settings**: Your callsign, speeds, and audio preferences are saved locally to your browser.
 
