@@ -32,7 +32,8 @@ This progressive web application is designed to bridge the gap between rote memo
 # Getting Started
 
 This project is built using Vue 3 (Composition API), Vite, TypeScript, and Quasar.
-Prerequisites
+
+# Prerequisites
 
 Ensure you have Node.js installed on your machine.
 
