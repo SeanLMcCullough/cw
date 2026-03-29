@@ -50,16 +50,31 @@
                       :disable="isRunning"
                       autocapitalize="characters"
                     />
+
                     <q-select
                       v-model="selectedScript"
                       :options="scripts"
-                      option-label="title"
                       label="Practice Script"
                       dark
                       outlined
                       class="col"
-                      :disable="isRunning"
-                    />
+                      :disable="isRunning || scripts.length === 0"
+                      :loading="scripts.length === 0"
+                    >
+                      <template v-slot:option="scope">
+                        <q-item v-bind="scope.itemProps">
+                          <q-item-section>
+                            <q-item-label>{{ scope.opt.title }}</q-item-label>
+                            <q-item-label caption class="text-grey-5">{{
+                              scope.opt.description
+                            }}</q-item-label>
+                          </q-item-section>
+                        </q-item>
+                      </template>
+                      <template v-slot:selected-item="scope">
+                        {{ scope.opt ? scope.opt.title : "Loading scripts..." }}
+                      </template>
+                    </q-select>
                   </div>
                   <div class="row q-gutter-x-lg">
                     <div class="col">
@@ -433,13 +448,17 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from "vue";
 // --- Types & Dictionary ---
 type AppState = "IDLE" | "RUNNING" | "FINISHED";
 type Speaker = "TX" | "RX";
+
 interface ScriptLine {
   speaker: Speaker;
   text: string;
 }
+
+// NEW: Scalable interface for external JSON
 interface ScriptDef {
   id: string;
   title: string;
+  description: string;
   lines: ScriptLine[];
 }
 
@@ -484,32 +503,12 @@ const morseDict: Record<string, string> = {
   "?": "..--..",
 };
 
-const scripts: ScriptDef[] = [
-  {
-    id: "gen-cq",
-    title: "General CQ (Grid Square)",
-    lines: [
-      { speaker: "TX", text: "CQ CQ CQ DE {CALL} {CALL} K" },
-      { speaker: "RX", text: "{CALL} DE VK4XYZ UR 599 599 BK" },
-      { speaker: "TX", text: "VK4XYZ TU UR 599 599 QTH QG62 BK" },
-      { speaker: "RX", text: "TU 73 EE" },
-    ],
-  },
-  {
-    id: "pota",
-    title: "POTA Operation",
-    lines: [
-      { speaker: "TX", text: "CQ POTA CQ POTA DE {CALL} {CALL} K" },
-      { speaker: "RX", text: "{CALL} DE VK2POTA UR 599 599 BK" },
-      { speaker: "TX", text: "VK2POTA TU UR 599 599 PARK VK-0001 73 EE" },
-    ],
-  },
-];
-
 // --- State ---
 const appState = ref<AppState>("IDLE");
 const callsign = ref("VK4SLM");
-const selectedScript = ref<ScriptDef>(scripts[0]);
+const selectedScript = ref<ScriptDef | null>(null);
+const scripts = ref<ScriptDef[]>([]); // Initialized empty, loaded from JSON
+
 const charWpm = ref(15);
 const effWpm = ref(15);
 
@@ -519,7 +518,7 @@ const isAcceptingInput = ref(false);
 const isWaitingForGap = ref(false);
 let isFirstCharOfTx = true;
 
-// Audio/Radio Effects State
+// Audio State
 const toneFreq = ref(700);
 const rxToneFreq = ref(700);
 const tolerance = ref(0.3);
@@ -549,14 +548,12 @@ const totalChars = ref(0);
 
 // DOM Refs
 const activeMessageRef = ref<HTMLElement | null>(null);
-const activeSessionRef = ref<any>(null); // New ref for scrolling
+const activeSessionRef = ref<any>(null);
 
 // Audio Engine Refs
 let audioCtx: AudioContext | null = null;
 let oscillator: OscillatorNode | null = null;
 let gainNode: GainNode | null = null;
-
-// Noise Generator
 let noiseSource: AudioBufferSourceNode | null = null;
 let noiseFilter: BiquadFilterNode | null = null;
 let noiseGain: GainNode | null = null;
@@ -566,8 +563,6 @@ let noiseLfoGain: GainNode | null = null;
 let keydownTime = 0;
 let animationFrameId: number | null = null;
 let isKeyDown = false;
-
-// Debounce & Pacer Tracking
 let keyLockoutTime = 0;
 const DEBOUNCE_DELAY = 12;
 
@@ -608,6 +603,7 @@ const finalGrade = computed(() => {
   if (pct >= 0.6) return "D";
   return "E";
 });
+
 const gradeColor = computed(
   () =>
     ({
@@ -626,7 +622,6 @@ function initAudio() {
     audioCtx = new (
       window.AudioContext || (window as any).webkitAudioContext
     )();
-
     oscillator = audioCtx.createOscillator();
     gainNode = audioCtx.createGain();
     oscillator.type = "sine";
@@ -644,24 +639,20 @@ function initAudio() {
     noiseSource = audioCtx.createBufferSource();
     noiseSource.buffer = buffer;
     noiseSource.loop = true;
-
     noiseFilter = audioCtx.createBiquadFilter();
     noiseFilter.type = "bandpass";
     noiseFilter.frequency.value = 1000;
     noiseFilter.Q.value = 1.0;
-
     noiseLfo = audioCtx.createOscillator();
     noiseLfo.type = "sine";
     noiseLfo.frequency.value = 0.15;
     noiseLfoGain = audioCtx.createGain();
     noiseLfoGain.gain.value = 300;
-
     noiseGain = audioCtx.createGain();
     noiseGain.gain.value = 0;
 
     noiseLfo.connect(noiseLfoGain);
     noiseLfoGain.connect(noiseFilter.frequency);
-
     noiseSource.connect(noiseFilter);
     noiseFilter.connect(noiseGain);
     noiseGain.connect(audioCtx.destination);
@@ -688,7 +679,6 @@ watch([enableNoise, noiseVolume, isUserTurn, appState], syncNoiseEngine);
 function toneOn() {
   if (!audioCtx || !gainNode || !oscillator) return;
   const now = audioCtx.currentTime;
-
   const activeFreq = isUserTurn.value ? toneFreq.value : rxToneFreq.value;
   oscillator.frequency.setTargetAtTime(activeFreq, now, 0.005);
 
@@ -711,16 +701,11 @@ function toneOff() {
   gainNode.gain.setTargetAtTime(0, now, 0.005);
 }
 
-watch(toneFreq, (newFreq) => {
-  if (oscillator && audioCtx && isUserTurn.value) {
-    oscillator.frequency.setTargetAtTime(newFreq, audioCtx.currentTime, 0.005);
-  }
-});
-
 // --- Game Logic ---
 async function startSession() {
+  if (!selectedScript.value) return;
   initAudio();
-  isAdvancedExpanded.value = false; // Collapse settings automatically
+  isAdvancedExpanded.value = false;
   isAcceptingInput.value = false;
   isWaitingForGap.value = false;
   isFirstCharOfTx = true;
@@ -728,8 +713,6 @@ async function startSession() {
   const offset = Math.floor(Math.random() * 151) + 50;
   const dir = Math.random() > 0.5 ? 1 : -1;
   let newRxFreq = toneFreq.value + offset * dir;
-  if (newRxFreq < 400) newRxFreq = toneFreq.value + offset;
-  if (newRxFreq > 1000) newRxFreq = toneFreq.value - offset;
   rxToneFreq.value = Math.max(400, Math.min(1000, newRxFreq));
 
   compiledScript.value = selectedScript.value.lines.map((l) => ({
@@ -746,7 +729,6 @@ async function startSession() {
   syncNoiseEngine();
   processLine();
 
-  // Wait for the running template to mount, then scroll it perfectly into view
   await nextTick();
   if (activeSessionRef.value) {
     const el = activeSessionRef.value.$el || activeSessionRef.value;
@@ -760,7 +742,6 @@ function stopSession() {
   isWaitingForGap.value = false;
   toneOff();
   syncNoiseEngine();
-
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
   if (pacerFrameId) cancelAnimationFrame(pacerFrameId);
   if (txTimeout) clearTimeout(txTimeout);
@@ -777,7 +758,6 @@ function processLine() {
   }
   revealedLength.value = 0;
   const line = compiledScript.value[currentLineIndex.value];
-
   charStatuses.value = Array(line.text.length).fill("pending");
 
   if (line.speaker === "TX") {
@@ -785,15 +765,9 @@ function processLine() {
     currentCharIndex.value = 0;
     revealedLength.value = 1;
     isFirstCharOfTx = true;
-    isAcceptingInput.value = false;
-    isWaitingForGap.value = false;
-
-    // Jumpstart the recursion logic with 0 delay
     setupPlayableChar(0);
   } else {
     isUserTurn.value = false;
-    isAcceptingInput.value = false;
-    isWaitingForGap.value = false;
     playRXLine();
   }
 }
@@ -807,11 +781,9 @@ function finishLine() {
 async function scrollToCurrentChar() {
   await nextTick();
   if (!activeMessageRef.value) return;
-
   const container = activeMessageRef.value;
   const chars = container.querySelectorAll(".active-message-char");
   const activeEl = chars[currentCharIndex.value] as HTMLElement;
-
   if (activeEl) {
     const targetScrollLeft =
       activeEl.offsetLeft -
@@ -823,26 +795,19 @@ async function scrollToCurrentChar() {
 
 function setupPlayableChar(accumulatedDelay: number) {
   if (appState.value !== "RUNNING") return;
-
   if (txTimeout) clearTimeout(txTimeout);
-
   const line = compiledScript.value[currentLineIndex.value];
   if (currentCharIndex.value >= line.text.length) {
     txTimeout = setTimeout(finishLine, accumulatedDelay);
     return;
   }
-
   const char = line.text[currentCharIndex.value];
-
   if (char === " ") {
     charStatuses.value[currentCharIndex.value] = "passed";
-
     const farnsworthRatio = charWpm.value / effWpm.value;
     const wordSpaceMs = dotMs.value * 4 * farnsworthRatio;
-
     currentCharIndex.value++;
     revealedLength.value = currentCharIndex.value + 1;
-
     setupPlayableChar(accumulatedDelay + wordSpaceMs);
     return;
   }
@@ -852,20 +817,14 @@ function setupPlayableChar(accumulatedDelay: number) {
   currentElementIndex.value = 0;
   elementFills.value = Array(expectedCount).fill(0);
   elementResults.value = Array(expectedCount).fill("pending");
-
   scrollToCurrentChar();
 
   if (isUserTurn.value) {
     isAcceptingInput.value = false;
-
-    if (accumulatedDelay > 50) {
-      isWaitingForGap.value = true;
-    }
-
+    if (accumulatedDelay > 50) isWaitingForGap.value = true;
     pacerHasStarted = false;
     if (pacerFrameId) cancelAnimationFrame(pacerFrameId);
     pacerFill.value = 0;
-
     if (currentExpectedElements.value.length > 0) {
       pacerDuration = currentExpectedElements.value.reduce((total, el, idx) => {
         const elMs = el === "." ? dotMs.value : dashMs.value;
@@ -875,32 +834,26 @@ function setupPlayableChar(accumulatedDelay: number) {
       }, 0);
     }
 
-    // Fast unlock allows the user to key ahead of the pacer if they know the timing
     setTimeout(() => {
-      if (appState.value === "RUNNING" && isUserTurn.value) {
+      if (appState.value === "RUNNING" && isUserTurn.value)
         isAcceptingInput.value = true;
-      }
     }, 20);
 
     txTimeout = setTimeout(
       () => {
         if (appState.value !== "RUNNING" || !isUserTurn.value) return;
-
         isWaitingForGap.value = false;
         isAcceptingInput.value = true;
-
         if (isFirstCharOfTx) {
           isFirstCharOfTx = false;
         } else if (!pacerHasStarted) {
           pacerHasStarted = true;
           pacerStartTime = performance.now();
-
           const updatePacer = () => {
             const elapsed = performance.now() - pacerStartTime;
             pacerFill.value = Math.min((elapsed / pacerDuration) * 100, 100);
-            if (pacerFill.value < 100 && appState.value === "RUNNING") {
+            if (pacerFill.value < 100 && appState.value === "RUNNING")
               pacerFrameId = requestAnimationFrame(updatePacer);
-            }
           };
           pacerFrameId = requestAnimationFrame(updatePacer);
         }
@@ -910,67 +863,47 @@ function setupPlayableChar(accumulatedDelay: number) {
   }
 }
 
-// --- Keying Handlers (TX) ---
-function handleGlobalKeydown(e: KeyboardEvent) {
-  if (e.repeat) return;
-  if (e.code === "Space" && isRunning.value && isUserTurn.value) {
-    e.preventDefault();
-    handleKeydown();
-  }
-}
-
-function handleGlobalKeyup(e: KeyboardEvent) {
-  if (e.code === "Space" && isRunning.value && isUserTurn.value) {
-    e.preventDefault();
-    handleKeyup();
-  }
-}
-
+// --- Keying Handlers ---
 function handleKeydown() {
   const now = performance.now();
-  if (now < keyLockoutTime) return;
-  if (!isAcceptingInput.value || isKeyDown || !isUserTurn.value) return;
-
+  if (
+    now < keyLockoutTime ||
+    !isAcceptingInput.value ||
+    isKeyDown ||
+    !isUserTurn.value
+  )
+    return;
   isKeyDown = true;
   keydownTime = now;
   keyLockoutTime = now + DEBOUNCE_DELAY;
-
   toneOn();
   syncNoiseEngine();
-
   if (!pacerHasStarted) {
     pacerHasStarted = true;
     pacerStartTime = now;
-
     const updatePacer = () => {
       const elapsed = performance.now() - pacerStartTime;
       pacerFill.value = Math.min((elapsed / pacerDuration) * 100, 100);
-      if (pacerFill.value < 100 && appState.value === "RUNNING") {
+      if (pacerFill.value < 100 && appState.value === "RUNNING")
         pacerFrameId = requestAnimationFrame(updatePacer);
-      }
     };
     pacerFrameId = requestAnimationFrame(updatePacer);
   }
-
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
   animationFrameId = requestAnimationFrame(updateVisualizer);
 }
 
 function handleKeyup() {
   if (!isKeyDown || !isUserTurn.value) return;
-
   const now = performance.now();
   if (now < keyLockoutTime) {
     setTimeout(handleKeyup, keyLockoutTime - now);
     return;
   }
-
   isKeyDown = false;
   keyLockoutTime = now + DEBOUNCE_DELAY;
-
   toneOff();
   syncNoiseEngine();
-
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
   evaluateElement();
 }
@@ -981,101 +914,76 @@ function updateVisualizer() {
   const expectedElement =
     currentExpectedElements.value[currentElementIndex.value];
   const targetMs = expectedElement === "." ? dotMs.value : dashMs.value;
-
   elementFills.value[currentElementIndex.value] = Math.min(
     (elapsed / targetMs) * 100,
     100,
   );
-
   if (elapsed > targetMs * 3) handleKeyup();
   else animationFrameId = requestAnimationFrame(updateVisualizer);
 }
 
 function evaluateElement() {
   if (currentElementIndex.value >= currentExpectedElements.value.length) return;
-
   const elapsed = performance.now() - keydownTime;
   const expectedElement =
     currentExpectedElements.value[currentElementIndex.value];
   const targetMs = expectedElement === "." ? dotMs.value : dashMs.value;
-
   const passed = Math.abs(elapsed - targetMs) / targetMs <= tolerance.value;
   elementResults.value[currentElementIndex.value] = passed
     ? "passed"
     : "failed";
   currentElementIndex.value++;
-
   if (currentElementIndex.value >= currentExpectedElements.value.length) {
     isAcceptingInput.value = false;
-
     const allPassed = elementResults.value.every((res) => res === "passed");
     charStatuses.value[currentCharIndex.value] = allPassed
       ? "passed"
       : "failed";
     if (allPassed) score.value++;
     totalChars.value++;
-
     const farnsworthRatio = charWpm.value / effWpm.value;
     const letterSpaceMs = dotMs.value * 3 * farnsworthRatio;
-
     currentCharIndex.value++;
     revealedLength.value = currentCharIndex.value + 1;
-
     setupPlayableChar(letterSpaceMs);
   }
 }
 
 // --- RX Simulation ---
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
 async function playRXLine() {
   const line = compiledScript.value[currentLineIndex.value];
   const farnsworthRatio = charWpm.value / effWpm.value;
-
   for (let i = 0; i < line.text.length; i++) {
     if (appState.value !== "RUNNING") return;
-
     currentCharIndex.value = i;
     revealedLength.value = i + 1;
-    const char = line.text[i];
-
-    if (char === " ") {
+    if (line.text[i] === " ") {
       charStatuses.value[i] = "rx";
-      // 4 dots for word space (since letter space already provided 3)
-      await sleep(dotMs.value * 4 * farnsworthRatio);
+      await new Promise((r) =>
+        setTimeout(r, dotMs.value * 4 * farnsworthRatio),
+      );
       continue;
     }
-
-    const code = morseDict[char];
+    const code = morseDict[line.text[i]];
     if (!code) continue;
-
     charStatuses.value[currentCharIndex.value] = "active";
-    const expectedCount = currentExpectedElements.value.length;
     currentElementIndex.value = 0;
-    elementFills.value = Array(expectedCount).fill(0);
-    elementResults.value = Array(expectedCount).fill("pending");
+    elementFills.value = Array(code.length).fill(0);
+    elementResults.value = Array(code.length).fill("pending");
     scrollToCurrentChar();
-
     for (let e = 0; e < code.length; e++) {
       if (appState.value !== "RUNNING") return;
       currentElementIndex.value = e;
       const duration = code[e] === "." ? dotMs.value : dashMs.value;
-
       toneOn();
       elementResults.value[e] = "rx";
       await playRXElementFill(duration, e);
       toneOff();
-
-      // Standard 1-dot space between elements of the same letter
-      if (e < code.length - 1) {
-        await sleep(dotMs.value);
-      }
+      if (e < code.length - 1)
+        await new Promise((r) => setTimeout(r, dotMs.value));
     }
     charStatuses.value[i] = "rx";
-    // Standard 3-dot space between letters
-    await sleep(dashMs.value * 3 * farnsworthRatio);
+    await new Promise((r) => setTimeout(r, dashMs.value * farnsworthRatio));
   }
   finishLine();
 }
@@ -1094,23 +1002,33 @@ function playRXElementFill(durationMs: number, index: number) {
   });
 }
 
-// --- Helper Functions ---
+function handleGlobalKeydown(e: KeyboardEvent) {
+  if (e.repeat) return;
+  if (e.code === "Space" && isRunning.value && isUserTurn.value) {
+    e.preventDefault();
+    handleKeydown();
+  }
+}
+function handleGlobalKeyup(e: KeyboardEvent) {
+  if (e.code === "Space" && isRunning.value && isUserTurn.value) {
+    e.preventDefault();
+    handleKeyup();
+  }
+}
+
 function getCharStatusClass(idx: number) {
   const status = charStatuses.value[idx];
-  if (status === "active") {
+  if (status === "active")
     return isWaitingForGap.value &&
       isUserTurn.value &&
       idx === currentCharIndex.value
       ? "text-dark bg-grey-6"
       : "text-dark bg-primary active-bounce";
-  }
   if (status === "passed") return "text-green-4";
   if (status === "failed") return "text-red-5";
   if (status === "rx") return "text-secondary";
-  if (isUserTurn.value) return "text-grey-6";
-  return "text-transparent";
+  return isUserTurn.value ? "text-grey-6" : "text-transparent";
 }
-
 function getElementFillColor(idx: number) {
   const res = elementResults.value[idx];
   if (res === "passed") return "bg-green-5";
@@ -1118,22 +1036,35 @@ function getElementFillColor(idx: number) {
   if (res === "rx") return "bg-secondary";
   return "bg-primary";
 }
-
 function getElementFillWidth(idx: number) {
   return elementFills.value[idx] || 0;
 }
 
-// --- Lifecycle & Persistence ---
+// --- Lifecycle & Data Loading ---
 const STORAGE_KEY = "cw-trainer-settings-v3";
 
-onMounted(() => {
+onMounted(async () => {
+  // NEW: Fetch external scripts
+  try {
+    const response = await fetch("/scripts.json");
+    if (response.ok) {
+      scripts.value = await response.json();
+      // Set default script if one isn't already selected via localStorage
+      if (!selectedScript.value && scripts.value.length > 0) {
+        selectedScript.value = scripts.value[0];
+      }
+    }
+  } catch (e) {
+    console.error("Failed to load scripts.json", e);
+  }
+
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
       if (parsed.callsign) callsign.value = parsed.callsign;
       if (parsed.scriptId) {
-        const found = scripts.find((s) => s.id === parsed.scriptId);
+        const found = scripts.value.find((s) => s.id === parsed.scriptId);
         if (found) selectedScript.value = found;
       }
       if (parsed.charWpm) charWpm.value = parsed.charWpm;
@@ -1153,7 +1084,6 @@ onMounted(() => {
       console.warn("Failed to parse settings", e);
     }
   }
-
   window.addEventListener("keydown", handleGlobalKeydown);
   window.addEventListener("keyup", handleGlobalKeyup);
 });
@@ -1177,7 +1107,7 @@ watch(
   () => {
     const settings = {
       callsign: callsign.value,
-      scriptId: selectedScript.value.id,
+      scriptId: selectedScript.value?.id,
       charWpm: charWpm.value,
       effWpm: effWpm.value,
       toneFreq: toneFreq.value,
@@ -1205,6 +1135,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* (Styles remain the same as previous version) */
 .app-layout {
   font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
@@ -1222,13 +1153,9 @@ onUnmounted(() => {
   pointer-events: none;
   transition: opacity 0.3s;
 }
-
-/* History Window */
 .history-window {
   min-height: 150px;
 }
-
-/* Fluid Typography for History Box */
 .script-history-text {
   font-family: "Courier New", Courier, monospace;
   font-weight: bold;
@@ -1237,11 +1164,9 @@ onUnmounted(() => {
   word-wrap: break-word;
   font-size: clamp(1rem, 3vw, 1.5rem);
 }
-
 .active-history-line {
   font-size: clamp(1.2rem, 4vw, 1.8rem);
 }
-
 .cursor-blink {
   animation: blink 1s step-end infinite;
 }
@@ -1250,27 +1175,20 @@ onUnmounted(() => {
     opacity: 0;
   }
 }
-
-/* Keying Window */
 .keying-window {
   min-height: 450px;
 }
-
-/* Determinisitc Single-Line Viewport */
 .active-message-viewport {
   width: 100%;
   text-align: left;
   white-space: nowrap;
-
   overflow-x: hidden;
   overflow-y: hidden;
   padding-top: 10px;
   padding-bottom: 15px;
-
   font-size: clamp(2rem, 5vw, 4rem);
   font-family: "Courier New", Courier, monospace;
   font-weight: 900;
-
   mask-image: linear-gradient(
     to right,
     transparent 0%,
@@ -1286,12 +1204,10 @@ onUnmounted(() => {
     transparent 100%
   );
 }
-
 .viewport-spacer {
   display: inline-block;
   width: 50%;
 }
-
 .active-message-char {
   transition:
     color 0.2s,
@@ -1301,23 +1217,18 @@ onUnmounted(() => {
   padding: 4px 8px;
   border-radius: 8px;
 }
-
 .word-space {
   width: 0.6em;
 }
 .text-transparent {
   color: transparent;
 }
-
-/* Morse Elements */
 .morse-element-container {
   box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 .morse-element-fill {
   border-radius: inherit;
 }
-
-/* Custom Footer Link Styles */
 .footer-link {
   color: inherit;
   text-decoration: none;
@@ -1326,36 +1237,29 @@ onUnmounted(() => {
 .footer-link:hover {
   color: white;
 }
-
-/* Visualizer Responsiveness */
 .visualizer-wrapper {
   width: max-content;
   max-width: 100%;
   margin: 0 auto;
 }
-
 .morse-row {
   height: 60px;
   gap: 16px;
   width: 100%;
   flex-wrap: nowrap !important;
 }
-
 .morse-el {
   height: 100%;
   min-width: 0;
 }
-
 .morse-dot {
   width: 80px;
   flex-shrink: 1;
 }
-
 .morse-dash {
   width: 200px;
   flex-shrink: 1;
 }
-
 @media (max-width: 600px) {
   .morse-row {
     height: 40px;
@@ -1368,8 +1272,6 @@ onUnmounted(() => {
     width: 100px;
   }
 }
-
-/* Animations */
 .fade-in {
   animation: fadeIn 0.3s ease-in-out;
 }
@@ -1383,7 +1285,6 @@ onUnmounted(() => {
     transform: translateY(0);
   }
 }
-
 .active-bounce {
   animation: pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
