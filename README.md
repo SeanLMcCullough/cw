@@ -2,7 +2,7 @@
 
 [Live Demo](https://cw.mccullough.xyz)
 
-![Screenshot](./screenshot.png)
+![Screenshot](./public/screenshot.png)
 
 ## Overview
 

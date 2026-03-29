@@ -11,10 +11,10 @@
             class="column items-center justify-center text-center q-pt-xl q-pb-sm fade-in"
           >
             <img
-              src="./assets/vk4slm_cw_trainer_logo_600x600.png"
+              src="/logo.png"
               alt="CW Trainer Logo"
-              style="width: 300px; height: 300px; border-radius: 20%"
-              class="q-mb-md"
+              style="width: 100px; height: 100px; border-radius: 20%"
+              class="q-mb-md shadow-5"
               onerror="this.style.display = 'none'"
             />
             <h1
@@ -139,11 +139,10 @@
             >
               <q-card class="bg-transparent flat">
                 <q-card-section class="row q-col-gutter-xl q-pt-none">
-                  <div class="col-12 col-md-6 column q-gutter-y-md">
+                  <div class="col-12 col-md-4 column q-gutter-y-md">
                     <div class="text-subtitle2 text-primary">
                       Transmission (TX)
                     </div>
-
                     <div>
                       <div class="text-caption text-grey-5">
                         Sidetone Volume
@@ -157,7 +156,6 @@
                         color="primary"
                       />
                     </div>
-
                     <div>
                       <div class="text-caption text-grey-5">
                         TX Tone: {{ toneFreq }} Hz
@@ -171,27 +169,12 @@
                         color="primary"
                       />
                     </div>
-
-                    <div>
-                      <div class="text-caption text-grey-5">
-                        Tolerance (±): {{ (tolerance * 100).toFixed(0) }}%
-                      </div>
-                      <q-slider
-                        v-model="tolerance"
-                        :min="0.1"
-                        :max="0.8"
-                        :step="0.05"
-                        dark
-                        color="negative"
-                      />
-                    </div>
                   </div>
 
-                  <div class="col-12 col-md-6 column q-gutter-y-md">
+                  <div class="col-12 col-md-4 column q-gutter-y-md">
                     <div class="text-subtitle2 text-secondary">
                       Reception (RX)
                     </div>
-
                     <div>
                       <div class="text-caption text-grey-5">
                         RX Signal Volume
@@ -205,7 +188,6 @@
                         color="secondary"
                       />
                     </div>
-
                     <div>
                       <div class="row items-center justify-between q-mb-xs">
                         <div class="text-caption text-grey-4">
@@ -229,7 +211,6 @@
                         />
                       </div>
                     </div>
-
                     <div>
                       <div class="row items-center justify-between q-mb-xs">
                         <div class="text-caption text-grey-4">
@@ -251,6 +232,23 @@
                       </div>
                     </div>
                   </div>
+
+                  <div class="col-12 col-md-4 column q-gutter-y-md">
+                    <div class="text-subtitle2 text-warning">Scoring</div>
+                    <div>
+                      <div class="text-caption text-grey-5">
+                        Tolerance (±): {{ (tolerance * 100).toFixed(0) }}%
+                      </div>
+                      <q-slider
+                        v-model="tolerance"
+                        :min="0.1"
+                        :max="0.8"
+                        :step="0.05"
+                        dark
+                        color="warning"
+                      />
+                    </div>
+                  </div>
                 </q-card-section>
               </q-card>
             </q-expansion-item>
@@ -264,6 +262,35 @@
               <div
                 class="column items-center justify-center full-width full-height q-pa-lg z-top pointer-events-none"
               >
+                <div
+                  class="preview-box bg-grey-2 rounded-custom q-pa-md q-mb-xl full-width text-center shadow-2 bordered-custom transition-all"
+                >
+                  <div class="preview-text text-weight-bold">
+                    <span
+                      v-for="(char, idx) in compiledScript[currentLineIndex]
+                        ?.text"
+                      :key="'preview-' + idx"
+                      :class="
+                        idx < currentCharIndex
+                          ? 'text-primary'
+                          : idx === currentCharIndex
+                            ? 'text-dark text-weight-bolder'
+                            : 'text-grey-7'
+                      "
+                      class="transition-all"
+                    >
+                      {{ char === " " ? "\u00A0" : char }}
+                    </span>
+                  </div>
+                  <div
+                    class="text-caption text-grey-7 q-mt-sm text-uppercase"
+                    style="letter-spacing: 1px"
+                  >
+                    <span v-if="isUserTurn">Message to Send</span>
+                    <span v-else>Incoming Message</span>
+                  </div>
+                </div>
+
                 <div
                   class="active-message-viewport q-mb-xl transition-all relative-position"
                   ref="activeMessageRef"
@@ -287,13 +314,10 @@
                 <div
                   class="text-h5 q-mb-lg text-grey-4 text-center transition-all"
                 >
-                  <span v-if="isUserTurn">Your Turn to Key: </span>
+                  <span v-if="isUserTurn">Your turn to key.</span>
                   <span v-else class="text-secondary text-weight-bold"
-                    >Receiving:
+                    >Receiving...
                   </span>
-                  <strong class="text-uppercase text-white text-h3 q-ml-sm">{{
-                    currentChar === " " ? "SPACE" : currentChar
-                  }}</strong>
                 </div>
 
                 <div
@@ -305,8 +329,12 @@
                     <div
                       v-for="(element, elIdx) in currentExpectedElements"
                       :key="elIdx"
-                      class="morse-element-container bg-grey-9 rounded-custom overflow-hidden morse-el"
-                      :class="element === '.' ? 'morse-dot' : 'morse-dash'"
+                      class="morse-element-container bg-grey-9 overflow-hidden morse-el"
+                      :class="
+                        element === '.'
+                          ? 'morse-dot rounded-custom'
+                          : 'morse-dash'
+                      "
                     >
                       <div
                         class="morse-element-fill full-height"
@@ -341,7 +369,7 @@
                   <span v-else-if="isUserTurn"
                     >Tap or hold SPACEBAR, or touch here to key.</span
                   >
-                  <span v-else class="text-secondary">Receiving...</span>
+                  <span v-else class="text-secondary"></span>
                 </div>
               </div>
 
@@ -358,24 +386,12 @@
             <q-card
               class="full-width bg-grey-10 flat bordered-custom rounded-custom history-window q-pa-md"
             >
-              <q-card-section class="script-history-text">
+              <q-card-section
+                class="script-history-text history-scroll-area"
+                ref="historyScrollRef"
+              >
                 <div
-                  v-if="compiledScript[currentLineIndex]"
-                  class="q-mb-md text-white fade-in text-weight-bolder active-history-line"
-                >
-                  <span :class="isUserTurn ? 'text-primary' : 'text-secondary'">
-                    [{{ isUserTurn ? "TX" : "RX" }}]
-                  </span>
-                  {{
-                    compiledScript[currentLineIndex].text.substring(
-                      0,
-                      revealedLength,
-                    )
-                  }}<span class="cursor-blink">_</span>
-                </div>
-
-                <div
-                  v-for="(line, index) in reversedHistoryLines"
+                  v-for="(line, index) in historyLines"
                   :key="'hist-' + index"
                   class="q-mb-sm text-grey-6 fade-in"
                 >
@@ -386,6 +402,21 @@
                     >[{{ line.speaker }}]</span
                   >
                   {{ line.text }}
+                </div>
+
+                <div
+                  v-if="compiledScript[currentLineIndex]"
+                  class="q-mb-md text-white fade-in active-history-line"
+                >
+                  <span :class="isUserTurn ? 'text-primary' : 'text-secondary'">
+                    [{{ isUserTurn ? "TX" : "RX" }}]
+                  </span>
+                  {{
+                    compiledScript[currentLineIndex].text.substring(
+                      0,
+                      revealedLength,
+                    )
+                  }}<span class="cursor-blink">_</span>
                 </div>
               </q-card-section>
             </q-card>
@@ -454,7 +485,6 @@ interface ScriptLine {
   text: string;
 }
 
-// NEW: Scalable interface for external JSON
 interface ScriptDef {
   id: string;
   title: string;
@@ -462,6 +492,7 @@ interface ScriptDef {
   lines: ScriptLine[];
 }
 
+// Fixed missing hyphen, period, and comma
 const morseDict: Record<string, string> = {
   A: ".-",
   B: "-...",
@@ -501,13 +532,16 @@ const morseDict: Record<string, string> = {
   "9": "----.",
   "/": "-..-.",
   "?": "..--..",
+  "-": "-....-",
+  ".": ".-.-.-",
+  ",": "--..--",
 };
 
 // --- State ---
 const appState = ref<AppState>("IDLE");
 const callsign = ref("VK4SLM");
 const selectedScript = ref<ScriptDef | null>(null);
-const scripts = ref<ScriptDef[]>([]); // Initialized empty, loaded from JSON
+const scripts = ref<ScriptDef[]>([]);
 
 const charWpm = ref(15);
 const effWpm = ref(15);
@@ -549,6 +583,7 @@ const totalChars = ref(0);
 // DOM Refs
 const activeMessageRef = ref<HTMLElement | null>(null);
 const activeSessionRef = ref<any>(null);
+const historyScrollRef = ref<any>(null);
 
 // Audio Engine Refs
 let audioCtx: AudioContext | null = null;
@@ -575,7 +610,6 @@ let pacerDuration = 0;
 
 // --- Computed ---
 const isRunning = computed(() => appState.value === "RUNNING");
-const reversedHistoryLines = computed(() => [...historyLines.value].reverse());
 
 const currentChar = computed(() => {
   if (!compiledScript.value[currentLineIndex.value]) return "";
@@ -772,10 +806,14 @@ function processLine() {
   }
 }
 
+// BUGFIX: Allow 800ms delay for animations to finish before swapping to the next line
 function finishLine() {
-  historyLines.value.push(compiledScript.value[currentLineIndex.value]);
-  currentLineIndex.value++;
-  setTimeout(processLine, 800);
+  setTimeout(() => {
+    if (appState.value !== "RUNNING") return;
+    historyLines.value.push(compiledScript.value[currentLineIndex.value]);
+    currentLineIndex.value++;
+    processLine();
+  }, 800);
 }
 
 async function scrollToCurrentChar() {
@@ -950,6 +988,10 @@ function evaluateElement() {
 }
 
 // --- RX Simulation ---
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 async function playRXLine() {
   const line = compiledScript.value[currentLineIndex.value];
   const farnsworthRatio = charWpm.value / effWpm.value;
@@ -1040,16 +1082,26 @@ function getElementFillWidth(idx: number) {
   return elementFills.value[idx] || 0;
 }
 
-// --- Lifecycle & Data Loading ---
+// --- Lifecycle, UI Tracking, & Persistence ---
 const STORAGE_KEY = "cw-trainer-settings-v3";
 
+watch(
+  [historyLines, revealedLength],
+  async () => {
+    await nextTick();
+    if (historyScrollRef.value) {
+      const el = historyScrollRef.value.$el || historyScrollRef.value;
+      el.scrollTop = el.scrollHeight;
+    }
+  },
+  { deep: true },
+);
+
 onMounted(async () => {
-  // NEW: Fetch external scripts
   try {
     const response = await fetch("/scripts.json");
     if (response.ok) {
       scripts.value = await response.json();
-      // Set default script if one isn't already selected via localStorage
       if (!selectedScript.value && scripts.value.length > 0) {
         selectedScript.value = scripts.value[0];
       }
@@ -1135,7 +1187,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* (Styles remain the same as previous version) */
 .app-layout {
   font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
@@ -1153,9 +1204,21 @@ onUnmounted(() => {
   pointer-events: none;
   transition: opacity 0.3s;
 }
+
+/* History Window Auto-Scroll */
 .history-window {
-  min-height: 150px;
+  height: 350px;
+  display: flex;
+  flex-direction: column;
 }
+.history-scroll-area {
+  overflow-y: auto;
+  flex-grow: 1;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
 .script-history-text {
   font-family: "Courier New", Courier, monospace;
   font-weight: bold;
@@ -1178,6 +1241,23 @@ onUnmounted(() => {
 .keying-window {
   min-height: 450px;
 }
+
+/* Heads-Up Preview Box */
+.preview-box {
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.preview-text {
+  font-family: "Courier New", Courier, monospace;
+  font-size: clamp(1.2rem, 4vw, 2rem);
+  letter-spacing: 2px;
+  white-space: pre-wrap; /* Allows the browser to wrap naturally on spaces */
+  word-break: break-word;
+}
+
+/* Determinisitc Single-Line Viewport */
 .active-message-viewport {
   width: 100%;
   text-align: left;
@@ -1237,6 +1317,8 @@ onUnmounted(() => {
 .footer-link:hover {
   color: white;
 }
+
+/* Visualizer Responsiveness */
 .visualizer-wrapper {
   width: max-content;
   max-width: 100%;
@@ -1259,6 +1341,7 @@ onUnmounted(() => {
 .morse-dash {
   width: 200px;
   flex-shrink: 1;
+  border-radius: 0 !important; /* Force strict 90-degree corners */
 }
 @media (max-width: 600px) {
   .morse-row {
