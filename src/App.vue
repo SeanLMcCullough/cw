@@ -354,7 +354,7 @@ const selectedScript = ref<ScriptDef>(scripts[0]);
 const charWpm = ref(15);
 const effWpm = ref(15);
 const toneFreq = ref(700);
-const rxToneFreq = ref(700); // Randomized upon Start
+const rxToneFreq = ref(700);
 const tolerance = ref(0.3);
 
 const compiledScript = ref<ScriptLine[]>([]);
@@ -454,7 +454,6 @@ const toneOn = () => {
   if (!audioCtx || !gainNode || !oscillator) return;
   const now = audioCtx.currentTime;
 
-  // Dynamically apply correct freq based on whose turn it is
   const activeFreq = isUserTurn.value ? toneFreq.value : rxToneFreq.value;
   oscillator.frequency.setTargetAtTime(activeFreq, now, 0.005);
 
@@ -481,7 +480,6 @@ watch(toneFreq, (newFreq) => {
 const startSession = () => {
   initAudio();
 
-  // Generate a randomized RX tone offset by 50-200Hz
   const offset = Math.floor(Math.random() * 151) + 50;
   const dir = Math.random() > 0.5 ? 1 : -1;
   let newRxFreq = toneFreq.value + offset * dir;
@@ -596,7 +594,7 @@ const handleGlobalKeyup = (e: KeyboardEvent) => {
 
 const handleKeydown = () => {
   const now = performance.now();
-  if (now < keyLockoutTime) return; // Deny bounce
+  if (now < keyLockoutTime) return;
   if (isKeyDown || !isUserTurn.value) return;
 
   isKeyDown = true;
@@ -613,7 +611,6 @@ const handleKeyup = () => {
 
   const now = performance.now();
   if (now < keyLockoutTime) {
-    // Hardware micro-bounce detected. Queue release safely.
     setTimeout(handleKeyup, keyLockoutTime - now);
     return;
   }
@@ -752,7 +749,6 @@ const getElementFillWidth = (idx: number) => elementFills.value[idx] || 0;
 const STORAGE_KEY = "cw-trainer-settings";
 
 onMounted(() => {
-  // Load saved settings
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) {
     try {
@@ -775,7 +771,6 @@ onMounted(() => {
   window.addEventListener("keyup", handleGlobalKeyup);
 });
 
-// Save settings when changed
 watch(
   [callsign, selectedScript, charWpm, effWpm, toneFreq, tolerance],
   () => {
@@ -842,12 +837,17 @@ onUnmounted(() => {
   width: 100%;
   text-align: left;
   white-space: nowrap;
+
+  /* FIX: Explicitly disable Y-scrolling and add vertical padding for the animation */
   overflow-x: hidden;
+  overflow-y: hidden;
+  padding-top: 10px;
+  padding-bottom: 15px;
+
   font-size: clamp(2rem, 5vw, 4rem);
   font-family: "Courier New", Courier, monospace;
   font-weight: 900;
 
-  /* Applies a slick fade-to-black on the edges of the scrolling text */
   mask-image: linear-gradient(
     to right,
     transparent 0%,
@@ -866,7 +866,7 @@ onUnmounted(() => {
 
 .viewport-spacer {
   display: inline-block;
-  width: 50%; /* Allows the first and last letters to reach the center of the viewport */
+  width: 50%;
 }
 
 .active-message-char {
