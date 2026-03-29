@@ -343,6 +343,26 @@
         </div>
       </q-page>
     </q-page-container>
+
+    <q-footer
+      class="bg-dark text-grey-7 text-center q-pa-md flat"
+      style="border-top: 1px solid rgba(255, 255, 255, 0.05)"
+    >
+      <div class="text-caption" style="letter-spacing: 0.5px">
+        Copyright {{ new Date().getFullYear() }} Sean McCullough - Made in
+        Australia by VK4SLM -
+        <a href="https://mccullough.xyz" target="_blank" class="footer-link"
+          >mccullough.xyz</a
+        >
+        -
+        <a
+          href="https://github.com/SeanLMcCullough/cw"
+          target="_blank"
+          class="footer-link"
+          >GitHub Repository</a
+        >
+      </div>
+    </q-footer>
   </q-layout>
 </template>
 
@@ -427,13 +447,14 @@ const scripts: ScriptDef[] = [
 
 // --- State ---
 const appState = ref<AppState>("IDLE");
-const callsign = ref("VK4ABC");
+const callsign = ref("VK4SLM");
 const selectedScript = ref<ScriptDef>(scripts[0]);
 const charWpm = ref(15);
 const effWpm = ref(15);
 
 // UI State
 const isAdvancedExpanded = ref(false);
+const isAcceptingInput = ref(false);
 
 // Radio Effects State
 const toneFreq = ref(700);
@@ -442,7 +463,7 @@ const tolerance = ref(0.3);
 const enableNoise = ref(true);
 const noiseVolume = ref(0.05);
 const enableQsb = ref(true);
-const qsbDepth = ref(0.7); // Range 0 to 1
+const qsbDepth = ref(0.7);
 
 const compiledScript = ref<ScriptLine[]>([]);
 const historyLines = ref<ScriptLine[]>([]);
@@ -466,8 +487,6 @@ const activeMessageRef = ref<HTMLElement | null>(null);
 
 // Audio Engine Refs
 let audioCtx: AudioContext | null = null;
-
-// CW Tones
 let oscillator: OscillatorNode | null = null;
 let gainNode: GainNode | null = null;
 
@@ -482,17 +501,17 @@ let keydownTime = 0;
 let animationFrameId: number | null = null;
 let isKeyDown = false;
 
-// Debounce Tracking
+// Debounce & Pacer Tracking
 let keyLockoutTime = 0;
 const DEBOUNCE_DELAY = 12;
 
-// Pacer Tracking
 const pacerFill = ref(0);
 let pacerTimeout: ReturnType<typeof setTimeout> | null = null;
+let txTimeout: ReturnType<typeof setTimeout> | null = null;
 let pacerFrameId: number | null = null;
 let pacerStartTime = 0;
 let pacerDuration = 0;
-const PACER_DWELL_MS = 600; // Delay before pacer begins
+const PACER_DWELL_MS = 600;
 
 // --- Computed ---
 const isRunning = computed(() => appState.value === "RUNNING");
@@ -543,7 +562,6 @@ const initAudio = () => {
       window.AudioContext || (window as any).webkitAudioContext
     )();
 
-    // 1. Build CW Tone Graph
     oscillator = audioCtx.createOscillator();
     gainNode = audioCtx.createGain();
     oscillator.type = "sine";
@@ -553,7 +571,6 @@ const initAudio = () => {
     gainNode.connect(audioCtx.destination);
     oscillator.start();
 
-    // 2. Build Authentic Swirling HF Noise Graph
     const bufferSize = audioCtx.sampleRate * 2;
     const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
     const output = buffer.getChannelData(0);
@@ -591,7 +608,6 @@ const initAudio = () => {
   }
 };
 
-// QSK Full Break-in: Noise fades out only when actively pressing the key
 const syncNoiseEngine = () => {
   if (!audioCtx || !noiseGain) return;
   const isTransmitting = isUserTurn.value && isKeyDown;
@@ -640,6 +656,7 @@ watch(toneFreq, (newFreq) => {
 const startSession = () => {
   initAudio();
   isAdvancedExpanded.value = false;
+  isAcceptingInput.value = false;
 
   const offset = Math.floor(Math.random() * 151) + 50;
   const dir = Math.random() > 0.5 ? 1 : -1;
@@ -665,18 +682,21 @@ const startSession = () => {
 
 const stopSession = () => {
   appState.value = "IDLE";
+  isAcceptingInput.value = false;
   toneOff();
   syncNoiseEngine();
 
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
   if (pacerTimeout) clearTimeout(pacerTimeout);
   if (pacerFrameId) cancelAnimationFrame(pacerFrameId);
+  if (txTimeout) clearTimeout(txTimeout);
 };
 
 const processLine = () => {
   if (appState.value !== "RUNNING") return;
   if (currentLineIndex.value >= compiledScript.value.length) {
     appState.value = "FINISHED";
+    isAcceptingInput.value = false;
     syncNoiseEngine();
     return;
   }
@@ -688,9 +708,14 @@ const processLine = () => {
   if (line.speaker === "TX") {
     isUserTurn.value = true;
     currentCharIndex.value = 0;
-    setupCharState();
+    if (line.text[0] === " ") {
+      advanceTXChar();
+    } else {
+      setupCharState();
+    }
   } else {
     isUserTurn.value = false;
+    isAcceptingInput.value = false;
     playRXLine();
   }
 };
@@ -718,23 +743,30 @@ const scrollToCurrentChar = async () => {
   }
 };
 
-const setupCharState = () => {
-  const line = compiledScript.value[currentLineIndex.value];
+const advanceTXChar = () => {
+  if (appState.value !== "RUNNING") return;
 
-  if (isUserTurn.value) {
-    while (
-      currentCharIndex.value < line.text.length &&
-      line.text[currentCharIndex.value] === " "
-    ) {
-      currentCharIndex.value++;
-      revealedLength.value = currentCharIndex.value;
-    }
-    if (currentCharIndex.value >= line.text.length) {
-      finishLine();
-      return;
-    }
+  currentCharIndex.value++;
+  revealedLength.value = currentCharIndex.value;
+
+  const line = compiledScript.value[currentLineIndex.value];
+  if (currentCharIndex.value >= line.text.length) {
+    finishLine();
+    return;
   }
 
+  if (line.text[currentCharIndex.value] === " ") {
+    charStatuses.value[currentCharIndex.value] = "passed";
+    const farnsworthRatio = charWpm.value / effWpm.value;
+    const wordSpaceMs = dashMs.value * farnsworthRatio * 2;
+    txTimeout = setTimeout(advanceTXChar, wordSpaceMs);
+    return;
+  }
+
+  setupCharState();
+};
+
+const setupCharState = () => {
   charStatuses.value[currentCharIndex.value] = "active";
   const expectedCount = currentExpectedElements.value.length;
   currentElementIndex.value = 0;
@@ -743,14 +775,14 @@ const setupCharState = () => {
 
   scrollToCurrentChar();
 
-  // Initialize Pacer Bar
   if (isUserTurn.value) {
+    isAcceptingInput.value = true;
+
     if (pacerTimeout) clearTimeout(pacerTimeout);
     if (pacerFrameId) cancelAnimationFrame(pacerFrameId);
     pacerFill.value = 0;
 
     if (currentExpectedElements.value.length > 0) {
-      // Calculate exact duration: sum of elements + (1 dot gap between each element)
       pacerDuration = currentExpectedElements.value.reduce((total, el, idx) => {
         const elMs = el === "." ? dotMs.value : dashMs.value;
         const gapMs =
@@ -795,14 +827,14 @@ const handleGlobalKeyup = (e: KeyboardEvent) => {
 const handleKeydown = () => {
   const now = performance.now();
   if (now < keyLockoutTime) return;
-  if (isKeyDown || !isUserTurn.value) return;
+  if (!isAcceptingInput.value || isKeyDown || !isUserTurn.value) return;
 
   isKeyDown = true;
   keydownTime = now;
   keyLockoutTime = now + DEBOUNCE_DELAY;
 
   toneOn();
-  syncNoiseEngine(); // QSK Mute
+  syncNoiseEngine();
 
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
   animationFrameId = requestAnimationFrame(updateVisualizer);
@@ -821,7 +853,7 @@ const handleKeyup = () => {
   keyLockoutTime = now + DEBOUNCE_DELAY;
 
   toneOff();
-  syncNoiseEngine(); // QSK Unmute
+  syncNoiseEngine();
 
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
   evaluateElement();
@@ -844,6 +876,8 @@ const updateVisualizer = () => {
 };
 
 const evaluateElement = () => {
+  if (currentElementIndex.value >= currentExpectedElements.value.length) return;
+
   const elapsed = performance.now() - keydownTime;
   const expectedElement =
     currentExpectedElements.value[currentElementIndex.value];
@@ -856,6 +890,8 @@ const evaluateElement = () => {
   currentElementIndex.value++;
 
   if (currentElementIndex.value >= currentExpectedElements.value.length) {
+    isAcceptingInput.value = false;
+
     const allPassed = elementResults.value.every((res) => res === "passed");
     charStatuses.value[currentCharIndex.value] = allPassed
       ? "passed"
@@ -864,10 +900,8 @@ const evaluateElement = () => {
     totalChars.value++;
 
     revealedLength.value = currentCharIndex.value + 1;
-    setTimeout(() => {
-      currentCharIndex.value++;
-      setupCharState();
-    }, 300);
+
+    txTimeout = setTimeout(advanceTXChar, 300);
   }
 };
 
@@ -1021,6 +1055,7 @@ onUnmounted(() => {
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
   if (pacerTimeout) clearTimeout(pacerTimeout);
   if (pacerFrameId) cancelAnimationFrame(pacerFrameId);
+  if (txTimeout) clearTimeout(txTimeout);
 });
 </script>
 
@@ -1126,6 +1161,16 @@ onUnmounted(() => {
 }
 .morse-element-fill {
   border-radius: inherit;
+}
+
+/* Custom Footer Link Styles */
+.footer-link {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+.footer-link:hover {
+  color: white;
 }
 
 /* Animations */
