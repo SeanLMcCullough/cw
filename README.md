@@ -1,6 +1,6 @@
 # On-Air CW Trainer
 
-[Live Demo](https://mccullough.xyz/cw)
+[Live Demo](https://cw.mccullough.xyz)
 
 ![Screenshot](./screenshot.png)
 
