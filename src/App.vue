@@ -375,9 +375,12 @@ let keydownTime = 0;
 let animationFrameId: number | null = null;
 let isKeyDown = false;
 
+// Debounce Tracking
+let keyLockoutTime = 0;
+const DEBOUNCE_DELAY = 12; // 12ms hardware lockout equivalent
+
 // --- Computed ---
 const isRunning = computed(() => appState.value === "RUNNING");
-
 const reversedHistoryLines = computed(() => [...historyLines.value].reverse());
 
 const currentChar = computed(() => {
@@ -442,7 +445,8 @@ const toneOn = () => {
   const now = audioCtx.currentTime;
   gainNode.gain.cancelScheduledValues(now);
   gainNode.gain.setValueAtTime(gainNode.gain.value, now);
-  gainNode.gain.linearRampToValueAtTime(1, now + 0.01);
+  // setTargetAtTime applies an exponential curve. 0.005 time-constant = completely smooth attack.
+  gainNode.gain.setTargetAtTime(1, now, 0.005);
 };
 
 const toneOff = () => {
@@ -450,7 +454,8 @@ const toneOff = () => {
   const now = audioCtx.currentTime;
   gainNode.gain.cancelScheduledValues(now);
   gainNode.gain.setValueAtTime(gainNode.gain.value, now);
-  gainNode.gain.linearRampToValueAtTime(0, now + 0.01);
+  // Smooth release curve
+  gainNode.gain.setTargetAtTime(0, now, 0.005);
 };
 
 watch(toneFreq, (newFreq) => {
@@ -530,7 +535,7 @@ const setupCharState = () => {
   elementResults.value = Array(expectedCount).fill("pending");
 };
 
-// --- Keying Handlers (TX) ---
+// --- Keying Handlers (TX) with Debounce ---
 const handleGlobalKeydown = (e: KeyboardEvent) => {
   if (e.repeat) return;
   if (e.code === "Space" && isRunning.value && isUserTurn.value) {
@@ -538,6 +543,7 @@ const handleGlobalKeydown = (e: KeyboardEvent) => {
     handleKeydown();
   }
 };
+
 const handleGlobalKeyup = (e: KeyboardEvent) => {
   if (e.code === "Space" && isRunning.value && isUserTurn.value) {
     e.preventDefault();
@@ -546,9 +552,14 @@ const handleGlobalKeyup = (e: KeyboardEvent) => {
 };
 
 const handleKeydown = () => {
+  const now = performance.now();
+  if (now < keyLockoutTime) return; // Ignore bouncing switch
   if (isKeyDown || !isUserTurn.value) return;
+
   isKeyDown = true;
-  keydownTime = performance.now();
+  keydownTime = now;
+  keyLockoutTime = now + DEBOUNCE_DELAY; // Lockout further events temporarily
+
   toneOn();
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
   animationFrameId = requestAnimationFrame(updateVisualizer);
@@ -556,7 +567,17 @@ const handleKeydown = () => {
 
 const handleKeyup = () => {
   if (!isKeyDown || !isUserTurn.value) return;
+
+  const now = performance.now();
+  if (now < keyLockoutTime) {
+    // If released during lockout (micro-bounce), queue the release to fire safely
+    setTimeout(handleKeyup, keyLockoutTime - now);
+    return;
+  }
+
   isKeyDown = false;
+  keyLockoutTime = now + DEBOUNCE_DELAY;
+
   toneOff();
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
   evaluateElement();
@@ -666,8 +687,8 @@ const playRXElementFill = (durationMs: number, index: number) => {
 // --- Helper Functions ---
 const getCharStatusClass = (idx: number) => {
   const status = charStatuses.value[idx];
-  if (status === "active")
-    return "text-dark bg-primary rounded-borders q-px-sm py-xs active-bounce";
+  // Note: Padding and border radius removed from here to prevent shifting width
+  if (status === "active") return "text-dark bg-primary active-bounce";
   if (status === "passed") return "text-green-4";
   if (status === "failed") return "text-red-5";
   if (status === "rx") return "text-secondary";
@@ -751,10 +772,12 @@ onUnmounted(() => {
     color 0.2s,
     background-color 0.2s;
   display: inline-block;
+  /* Applying uniform physical size permanently eliminates layout shifts */
   margin: 0 2px;
+  padding: 4px 8px;
+  border-radius: 8px;
 }
 
-/* FIX: Guaranteed visible space width for our injected non-breaking space */
 .word-space {
   width: 0.6em;
 }
