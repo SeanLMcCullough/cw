@@ -2,9 +2,12 @@
   <q-layout view="hHh lpR fFf" class="bg-dark text-white app-layout">
     <q-page-container>
       <q-page class="window-height flex flex-center q-pa-md">
-        <div class="full-width column q-gutter-y-lg" style="max-width: 1200px">
+        <div
+          class="full-width column q-gutter-y-lg"
+          style="max-width: 1200px; height: 100%"
+        >
           <q-card
-            class="bg-grey-10 text-white flat bordered-custom rounded-custom q-pa-lg"
+            class="bg-grey-10 text-white flat bordered-custom rounded-custom q-pa-lg shrink-0"
           >
             <q-card-section class="row q-col-gutter-lg items-center">
               <div class="col-12 col-md-6 column q-gutter-y-md">
@@ -19,11 +22,11 @@
                     outlined
                     class="col"
                     :disable="isRunning"
+                    autocapitalize="characters"
                     :rules="[
                       (val) =>
                         /^VK[0-9][A-Z]{1,4}$/i.test(val) || 'VK calls only',
                     ]"
-                    autocapitalize="characters"
                   />
                   <q-select
                     v-model="selectedScript"
@@ -122,91 +125,108 @@
 
           <div
             v-if="appState === 'RUNNING'"
-            class="column items-center full-width q-gutter-y-lg"
+            class="col column full-width q-gutter-y-lg no-wrap"
           >
             <q-card
-              class="full-width bg-grey-10 flat bordered-custom rounded-custom"
+              class="full-width bg-grey-10 flat bordered-custom rounded-custom history-window q-pa-md"
+              ref="historyScrollRef"
             >
-              <q-card-section
-                class="text-h4 text-center script-container q-pa-lg"
-              >
+              <q-card-section class="text-h5 script-history-text">
                 <div
-                  v-for="(line, index) in compiledScript"
-                  :key="index"
-                  :class="{
-                    'text-grey-7': index < currentLineIndex,
-                    'text-white': index === currentLineIndex,
-                    'text-grey-8': index > currentLineIndex,
-                  }"
-                  class="q-my-sm transition-colors"
+                  v-for="(line, index) in historyLines"
+                  :key="'hist-' + index"
+                  class="q-mb-sm text-grey-6 fade-in"
                 >
                   <span
-                    v-if="line.speaker === 'RX'"
-                    class="text-h5 q-mr-md text-secondary"
-                    >[RX]</span
+                    :class="
+                      line.speaker === 'RX' ? 'text-secondary' : 'text-primary'
+                    "
+                    >[{{ line.speaker }}]</span
                   >
-                  <span v-else class="text-h5 q-mr-md text-primary">[TX]</span>
+                  {{ line.text }}
+                </div>
 
-                  <span v-if="index === currentLineIndex">
-                    <span
-                      v-for="(char, charIdx) in line.text"
-                      :key="charIdx"
-                      :class="getCharStatusClass(charIdx)"
-                    >
-                      {{ char }}
-                    </span>
+                <div
+                  v-if="compiledScript[currentLineIndex]"
+                  class="q-mb-sm text-white fade-in"
+                >
+                  <span :class="isUserTurn ? 'text-primary' : 'text-secondary'">
+                    [{{ isUserTurn ? "TX" : "RX" }}]
                   </span>
-                  <span v-else>{{ line.text }}</span>
+                  {{
+                    compiledScript[currentLineIndex].text.substring(
+                      0,
+                      revealedLength,
+                    )
+                  }}<span class="cursor-blink">_</span>
                 </div>
               </q-card-section>
             </q-card>
 
             <q-card
-              class="full-width bg-grey-10 flat bordered-custom rounded-custom q-pa-xl text-center relative-position"
+              class="full-width bg-grey-10 flat bordered-custom rounded-custom keying-window relative-position"
             >
-              <div class="text-h5 q-mb-lg text-grey-4">
-                <span v-if="isUserTurn">Your Turn to Key: </span>
-                <span v-else class="text-secondary text-weight-bold"
-                  >Receiving Transmission:
-                </span>
-                <strong class="text-uppercase text-white text-h2 q-ml-sm">{{
-                  currentChar === " " ? "SPACE" : currentChar
-                }}</strong>
-              </div>
-
               <div
-                class="row justify-center items-center q-gutter-x-md"
-                style="min-height: 80px"
+                class="column items-center justify-center full-width full-height q-pa-lg z-top pointer-events-none"
               >
+                <div class="active-message-container q-mb-xl transition-all">
+                  <span
+                    v-for="(char, charIdx) in compiledScript[currentLineIndex]
+                      ?.text"
+                    :key="charIdx"
+                    class="active-message-char fade-in"
+                    :class="getCharStatusClass(charIdx)"
+                  >
+                    {{ char }}
+                  </span>
+                </div>
+
                 <div
-                  v-for="(element, elIdx) in currentExpectedElements"
-                  :key="elIdx"
-                  class="morse-element-container bg-grey-9 rounded-custom overflow-hidden"
-                  :style="{
-                    width: element === '.' ? '60px' : '160px',
-                    height: '40px',
-                  }"
+                  class="text-h5 q-mb-lg text-grey-4 text-center transition-all"
+                >
+                  <span v-if="isUserTurn">Your Turn to Key: </span>
+                  <span v-else class="text-secondary text-weight-bold"
+                    >Receiving:
+                  </span>
+                  <strong class="text-uppercase text-white text-h3 q-ml-sm">{{
+                    currentChar === " " ? "SPACE" : currentChar
+                  }}</strong>
+                </div>
+
+                <div
+                  class="row justify-center items-center q-gutter-x-md transition-all"
+                  style="height: 60px"
                 >
                   <div
-                    class="morse-element-fill full-height"
-                    :class="getElementFillColor(elIdx)"
-                    :style="{ width: getElementFillWidth(elIdx) + '%' }"
-                  ></div>
+                    v-for="(element, elIdx) in currentExpectedElements"
+                    :key="elIdx"
+                    class="morse-element-container bg-grey-9 rounded-custom overflow-hidden"
+                    :style="{
+                      width: element === '.' ? '80px' : '200px',
+                      height: '100%',
+                    }"
+                  >
+                    <div
+                      class="morse-element-fill full-height"
+                      :class="getElementFillColor(elIdx)"
+                      :style="{ width: getElementFillWidth(elIdx) + '%' }"
+                    ></div>
+                  </div>
                 </div>
-              </div>
 
-              <div class="q-mt-xl text-h6 text-grey-6">
-                <span v-if="isUserTurn"
-                  >Tap or hold SPACEBAR, or touch here to key.</span
-                >
-                <span v-else class="text-secondary"
-                  >Listen to the timing and cadence...</span
-                >
+                <div class="q-mt-xl text-h6 text-grey-6 transition-all">
+                  <span v-if="isUserTurn"
+                    >Tap or hold SPACEBAR, or touch here to key.</span
+                  >
+                  <span v-else class="text-secondary"
+                    >Listen to the timing and cadence...</span
+                  >
+                </div>
               </div>
 
               <div
                 v-if="isUserTurn"
-                class="absolute-top-left full-width full-height z-top cursor-pointer"
+                class="absolute-top-left full-width full-height cursor-pointer"
                 @mousedown="handleKeydown"
                 @mouseup="handleKeyup"
                 @touchstart.prevent="handleKeydown"
@@ -217,7 +237,7 @@
 
           <q-card
             v-if="appState === 'FINISHED'"
-            class="bg-grey-10 flat bordered-custom rounded-custom q-pa-xl text-center"
+            class="bg-grey-10 flat bordered-custom rounded-custom q-pa-xl text-center col flex flex-center column"
           >
             <h2 class="text-h2 q-mb-md text-white">Session Complete</h2>
             <div class="text-h3 q-mb-lg">
@@ -240,7 +260,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from "vue";
 
 // --- Types & Dictionary ---
 type AppState = "IDLE" | "RUNNING" | "FINISHED";
@@ -296,7 +316,6 @@ const morseDict: Record<string, string> = {
   "?": "..--..",
 };
 
-// --- Scripts Data ---
 const scripts: ScriptDef[] = [
   {
     id: "gen-cq",
@@ -326,15 +345,21 @@ const selectedScript = ref<ScriptDef>(scripts[0]);
 const charWpm = ref(20);
 const effWpm = ref(10);
 const toneFreq = ref(700);
-const tolerance = ref(0.3); // 30% timing tolerance
+const tolerance = ref(0.3);
 
 const compiledScript = ref<ScriptLine[]>([]);
+const historyLines = ref<ScriptLine[]>([]);
+const historyScrollRef = ref<HTMLElement | null>(null);
+const revealedLength = ref(0); // Tracks chars revealed in the top history box
+
 const currentLineIndex = ref(0);
 const currentCharIndex = ref(0);
 const currentElementIndex = ref(0);
 const isUserTurn = ref(false);
 
-const charStatuses = ref<("pending" | "active" | "passed" | "failed")[]>([]);
+const charStatuses = ref<("pending" | "active" | "passed" | "failed" | "rx")[]>(
+  [],
+);
 const elementFills = ref<number[]>([]);
 const elementResults = ref<("pending" | "passed" | "failed" | "rx")[]>([]);
 const score = ref(0);
@@ -363,8 +388,7 @@ const currentChar = computed(() => {
 });
 
 const currentExpectedElements = computed(() => {
-  const char = currentChar.value.toUpperCase();
-  const code = morseDict[char];
+  const code = morseDict[currentChar.value.toUpperCase()];
   return code ? code.split("") : [];
 });
 
@@ -393,51 +417,58 @@ const gradeColor = computed(
     })[finalGrade.value],
 );
 
-// --- Audio Engine ---
+// --- Audio Engine (Click-Free Continuous Oscillator) ---
 const initAudio = () => {
-  if (!audioCtx)
+  if (!audioCtx) {
     audioCtx = new (
       window.AudioContext || (window as any).webkitAudioContext
     )();
+    oscillator = audioCtx.createOscillator();
+    gainNode = audioCtx.createGain();
+
+    oscillator.type = "sine";
+    oscillator.frequency.value = toneFreq.value;
+    gainNode.gain.value = 0; // Start silent
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    oscillator.start();
+  } else if (audioCtx.state === "suspended") {
+    audioCtx.resume();
+  }
 };
 
-const startTone = () => {
-  if (!audioCtx) return;
-  if (audioCtx.state === "suspended") audioCtx.resume();
-
-  oscillator = audioCtx.createOscillator();
-  gainNode = audioCtx.createGain();
-  oscillator.type = "sine";
-  oscillator.frequency.value = toneFreq.value;
-  gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-  gainNode.gain.setTargetAtTime(1, audioCtx.currentTime, 0.005);
-  oscillator.connect(gainNode);
-  gainNode.connect(audioCtx.destination);
-  oscillator.start();
+const toneOn = () => {
+  if (!audioCtx || !gainNode) return;
+  const now = audioCtx.currentTime;
+  gainNode.gain.cancelScheduledValues(now);
+  gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+  // 10ms ramp up removes the click
+  gainNode.gain.linearRampToValueAtTime(1, now + 0.01);
 };
 
-const stopTone = () => {
-  if (!audioCtx || !gainNode || !oscillator) return;
-  gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 0.005);
-  const oscToStop = oscillator;
-  setTimeout(() => oscToStop.stop(), 50);
-  oscillator = null;
-  gainNode = null;
+const toneOff = () => {
+  if (!audioCtx || !gainNode) return;
+  const now = audioCtx.currentTime;
+  gainNode.gain.cancelScheduledValues(now);
+  gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+  // 10ms ramp down removes the click
+  gainNode.gain.linearRampToValueAtTime(0, now + 0.01);
 };
 
-// Live update tone freq if running
 watch(toneFreq, (newFreq) => {
-  if (oscillator)
-    oscillator.frequency.setValueAtTime(newFreq, audioCtx!.currentTime);
+  if (oscillator && audioCtx)
+    oscillator.frequency.setValueAtTime(newFreq, audioCtx.currentTime);
 });
 
 // --- Game Logic ---
 const startSession = () => {
   initAudio();
-  compiledScript.value = selectedScript.value.lines.map((line) => ({
-    speaker: line.speaker,
-    text: line.text.replace(/\{CALL\}/g, callsign.value.toUpperCase()),
+  compiledScript.value = selectedScript.value.lines.map((l) => ({
+    speaker: l.speaker,
+    text: l.text.replace(/\{CALL\}/g, callsign.value.toUpperCase()),
   }));
+  historyLines.value = [];
   currentLineIndex.value = 0;
   score.value = 0;
   totalChars.value = 0;
@@ -447,7 +478,7 @@ const startSession = () => {
 
 const stopSession = () => {
   appState.value = "IDLE";
-  stopTone();
+  toneOff();
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
 };
 
@@ -457,7 +488,12 @@ const processLine = () => {
     appState.value = "FINISHED";
     return;
   }
+  revealedLength.value = 0;
   const line = compiledScript.value[currentLineIndex.value];
+
+  // Pre-fill RX statuses to pending so they fade in
+  charStatuses.value = Array(line.text.length).fill("pending");
+
   if (line.speaker === "TX") {
     isUserTurn.value = true;
     currentCharIndex.value = 0;
@@ -468,34 +504,45 @@ const processLine = () => {
   }
 };
 
+const finishLine = () => {
+  historyLines.value.push(compiledScript.value[currentLineIndex.value]);
+  currentLineIndex.value++;
+  setTimeout(processLine, 800);
+};
+
 const setupCharState = () => {
   const line = compiledScript.value[currentLineIndex.value];
 
   if (isUserTurn.value) {
-    // Skip spaces automatically during TX
     while (
       currentCharIndex.value < line.text.length &&
       line.text[currentCharIndex.value] === " "
     ) {
       currentCharIndex.value++;
+      revealedLength.value = currentCharIndex.value;
     }
     if (currentCharIndex.value >= line.text.length) {
-      currentLineIndex.value++;
-      setTimeout(processLine, 1000);
+      finishLine();
       return;
     }
   }
 
-  if (charStatuses.value.length !== line.text.length) {
-    charStatuses.value = Array(line.text.length).fill("pending");
-  }
   charStatuses.value[currentCharIndex.value] = "active";
-
   const expectedCount = currentExpectedElements.value.length;
   currentElementIndex.value = 0;
   elementFills.value = Array(expectedCount).fill(0);
   elementResults.value = Array(expectedCount).fill("pending");
+  scrollToBottom();
 };
+
+// --- Scroll & Layout Sync ---
+const scrollToBottom = async () => {
+  await nextTick();
+  if (historyScrollRef.value) {
+    historyScrollRef.value.scrollTop = historyScrollRef.value.scrollHeight;
+  }
+};
+watch([revealedLength, historyLines], scrollToBottom, { deep: true });
 
 // --- Keying Handlers (TX) ---
 const handleGlobalKeydown = (e: KeyboardEvent) => {
@@ -516,7 +563,7 @@ const handleKeydown = () => {
   if (isKeyDown || !isUserTurn.value) return;
   isKeyDown = true;
   keydownTime = performance.now();
-  startTone();
+  toneOn();
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
   animationFrameId = requestAnimationFrame(updateVisualizer);
 };
@@ -524,7 +571,7 @@ const handleKeydown = () => {
 const handleKeyup = () => {
   if (!isKeyDown || !isUserTurn.value) return;
   isKeyDown = false;
-  stopTone();
+  toneOff();
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
   evaluateElement();
 };
@@ -536,10 +583,11 @@ const updateVisualizer = () => {
     currentExpectedElements.value[currentElementIndex.value];
   const targetMs = expectedElement === "." ? dotMs.value : dashMs.value;
 
-  let pct = (elapsed / targetMs) * 100;
-  elementFills.value[currentElementIndex.value] = Math.min(pct, 100);
+  elementFills.value[currentElementIndex.value] = Math.min(
+    (elapsed / targetMs) * 100,
+    100,
+  );
 
-  // Fail-safe timeout: only auto-kill if held absurdly long (3x target duration)
   if (elapsed > targetMs * 3) {
     handleKeyup();
   } else {
@@ -553,33 +601,28 @@ const evaluateElement = () => {
     currentExpectedElements.value[currentElementIndex.value];
   const targetMs = expectedElement === "." ? dotMs.value : dashMs.value;
 
-  // Mathematical threshold logic (works for both too short and too long)
-  const errorRatio = Math.abs(elapsed - targetMs) / targetMs;
-  const passed = errorRatio <= tolerance.value;
-
+  const passed = Math.abs(elapsed - targetMs) / targetMs <= tolerance.value;
   elementResults.value[currentElementIndex.value] = passed
     ? "passed"
     : "failed";
   currentElementIndex.value++;
 
-  // Check if character is fully keyed
   if (currentElementIndex.value >= currentExpectedElements.value.length) {
-    const allElementsPassed = elementResults.value.every(
-      (res) => res === "passed",
-    );
-    charStatuses.value[currentCharIndex.value] = allElementsPassed
+    const allPassed = elementResults.value.every((res) => res === "passed");
+    charStatuses.value[currentCharIndex.value] = allPassed
       ? "passed"
       : "failed";
-
-    if (allElementsPassed) score.value++;
+    if (allPassed) score.value++;
     totalChars.value++;
-    setTimeout(advanceToNextChar, 300);
-  }
-};
 
-const advanceToNextChar = () => {
-  currentCharIndex.value++;
-  setupCharState();
+    // Update top box history tracker
+    revealedLength.value = currentCharIndex.value + 1;
+
+    setTimeout(() => {
+      currentCharIndex.value++;
+      setupCharState();
+    }, 300);
+  }
 };
 
 // --- RX Simulation ---
@@ -590,13 +633,15 @@ const playRXLine = async () => {
   const farnsworthRatio = charWpm.value / effWpm.value;
 
   for (let i = 0; i < line.text.length; i++) {
-    if (appState.value !== "RUNNING") return; // Abort if stopped mid-RX
+    if (appState.value !== "RUNNING") return;
 
     currentCharIndex.value = i;
+    revealedLength.value = i + 1;
     const char = line.text[i];
 
     if (char === " ") {
-      await sleep(dashMs.value * farnsworthRatio * 2); // Word space
+      charStatuses.value[i] = "rx";
+      await sleep(dashMs.value * farnsworthRatio * 2);
       continue;
     }
 
@@ -610,20 +655,19 @@ const playRXLine = async () => {
       currentElementIndex.value = e;
       const duration = code[e] === "." ? dotMs.value : dashMs.value;
 
-      startTone();
+      toneOn();
       elementResults.value[e] = "rx";
       await playRXElementFill(duration, e);
-      stopTone();
+      toneOff();
 
-      await sleep(dotMs.value); // Standard gap between elements
+      await sleep(dotMs.value);
     }
 
-    charStatuses.value[i] = "passed";
-    await sleep(dashMs.value * farnsworthRatio); // Farnsworth gap between chars
+    charStatuses.value[i] = "rx";
+    await sleep(dashMs.value * farnsworthRatio);
   }
 
-  currentLineIndex.value++;
-  processLine();
+  finishLine();
 };
 
 const playRXElementFill = (durationMs: number, index: number) => {
@@ -644,17 +688,19 @@ const playRXElementFill = (durationMs: number, index: number) => {
 const getCharStatusClass = (idx: number) => {
   const status = charStatuses.value[idx];
   if (status === "active")
-    return "text-primary bg-grey-9 rounded-borders q-px-sm py-xs";
+    return "text-dark bg-primary rounded-borders q-px-xs active-bounce";
   if (status === "passed") return "text-green-4";
   if (status === "failed") return "text-red-5";
-  return "text-grey-7";
+  if (status === "rx") return "text-secondary";
+  if (isUserTurn.value) return "text-grey-6"; // TX shows future letters dimmed
+  return "text-transparent"; // RX hides future letters
 };
 
 const getElementFillColor = (idx: number) => {
   const res = elementResults.value[idx];
   if (res === "passed") return "bg-green-5";
   if (res === "failed") return "bg-red-5";
-  if (res === "rx") return "bg-secondary"; // Teal for RX playback
+  if (res === "rx") return "bg-secondary";
   return "bg-primary";
 };
 
@@ -673,7 +719,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* Dark Mode Overrides and Layout Styling */
 .app-layout {
   font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
@@ -683,21 +728,92 @@ onUnmounted(() => {
 .bordered-custom {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
-.transition-colors {
+.transition-all {
   transition: all 0.3s ease;
 }
-.script-container {
+
+/* History Window (Top Box) */
+.history-window {
+  height: 25vh;
+  min-height: 150px;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+.script-history-text {
   font-family: "Courier New", Courier, monospace;
   font-weight: bold;
-  line-height: 1.8;
-  letter-spacing: 2px;
+  line-height: 1.6;
+  letter-spacing: 1px;
 }
+.cursor-blink {
+  animation: blink 1s step-end infinite;
+}
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* Keying Window (Bottom Box) */
+.keying-window {
+  height: 50vh;
+  min-height: 400px;
+  container-type: inline-size;
+}
+
+/* Scalable Active Message Area */
+.active-message-container {
+  width: 100%;
+  text-align: center;
+  /* Fluid font sizing based on container width */
+  font-size: clamp(2rem, 6cqi, 4.5rem);
+  font-family: "Courier New", Courier, monospace;
+  font-weight: 900;
+  line-height: 1.2;
+  word-wrap: break-word;
+}
+.active-message-char {
+  transition:
+    color 0.2s,
+    background-color 0.2s;
+}
+.text-transparent {
+  color: transparent;
+}
+
+/* Morse Elements */
 .morse-element-container {
-  position: relative;
   box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 .morse-element-fill {
-  transition: background-color 0.2s;
   border-radius: inherit;
+}
+
+/* Animations */
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.active-bounce {
+  display: inline-block;
+  animation: pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+@keyframes pop {
+  0% {
+    transform: scale(0.8);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 </style>
