@@ -6,118 +6,182 @@
         :class="appState === 'IDLE' ? 'items-center' : 'items-start'"
       >
         <div class="full-width column q-gutter-y-lg" style="max-width: 1200px">
-          <q-card
-            class="bg-grey-10 text-white flat bordered-custom rounded-custom q-pa-lg shrink-0"
-          >
-            <q-card-section class="row q-col-gutter-lg items-center">
-              <div class="col-12 col-md-6 column q-gutter-y-md">
-                <div class="text-h6 text-grey-4 q-mb-xs">
-                  Session Parameters
-                </div>
-                <div class="row q-gutter-x-md">
-                  <q-input
-                    v-model="callsign"
-                    label="Your Callsign"
-                    dark
-                    outlined
-                    class="col"
-                    :disable="isRunning"
-                    autocapitalize="characters"
-                  />
-                  <q-select
-                    v-model="selectedScript"
-                    :options="scripts"
-                    option-label="title"
-                    label="Practice Script"
-                    dark
-                    outlined
-                    class="col"
-                    :disable="isRunning"
-                  />
-                </div>
-                <div class="row q-gutter-x-lg">
-                  <div class="col">
-                    <div class="text-caption text-grey-5">
-                      Char Speed: {{ charWpm }} WPM
-                    </div>
-                    <q-slider
-                      v-model="charWpm"
-                      :min="10"
-                      :max="40"
-                      :step="1"
+          <div class="column q-gutter-y-sm shrink-0">
+            <q-card
+              class="bg-grey-10 text-white flat bordered-custom rounded-custom q-pa-lg"
+            >
+              <q-card-section class="row q-col-gutter-lg items-center">
+                <div class="col-12 col-md-9 column q-gutter-y-md">
+                  <div class="text-h6 text-grey-4 q-mb-xs">
+                    Session Parameters
+                  </div>
+                  <div class="row q-gutter-x-md">
+                    <q-input
+                      v-model="callsign"
+                      label="Your Callsign"
                       dark
-                      color="primary"
+                      outlined
+                      class="col"
+                      :disable="isRunning"
+                      autocapitalize="characters"
+                    />
+                    <q-select
+                      v-model="selectedScript"
+                      :options="scripts"
+                      option-label="title"
+                      label="Practice Script"
+                      dark
+                      outlined
+                      class="col"
                       :disable="isRunning"
                     />
                   </div>
-                  <div class="col">
-                    <div class="text-caption text-grey-5">
-                      Effective Speed: {{ effWpm }} WPM
+                  <div class="row q-gutter-x-lg">
+                    <div class="col">
+                      <div class="text-caption text-grey-5">
+                        Char Speed: {{ charWpm }} WPM
+                      </div>
+                      <q-slider
+                        v-model="charWpm"
+                        :min="10"
+                        :max="40"
+                        :step="1"
+                        dark
+                        color="primary"
+                        :disable="isRunning"
+                      />
                     </div>
-                    <q-slider
-                      v-model="effWpm"
-                      :min="5"
-                      :max="charWpm"
-                      :step="1"
-                      dark
-                      color="primary"
-                      :disable="isRunning"
-                    />
+                    <div class="col">
+                      <div class="text-caption text-grey-5">
+                        Effective Speed: {{ effWpm }} WPM
+                      </div>
+                      <q-slider
+                        v-model="effWpm"
+                        :min="5"
+                        :max="charWpm"
+                        :step="1"
+                        dark
+                        color="primary"
+                        :disable="isRunning"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div class="col-12 col-md-4 column q-gutter-y-md">
-                <div class="text-h6 text-grey-4 q-mb-xs">Live Tuning</div>
-                <div>
-                  <div class="text-caption text-grey-5">
-                    TX Tone Frequency: {{ toneFreq }} Hz
-                  </div>
-                  <q-slider
-                    v-model="toneFreq"
-                    :min="400"
-                    :max="1000"
-                    :step="10"
-                    dark
-                    color="secondary"
+                <div class="col-12 col-md-3 flex flex-center">
+                  <q-btn
+                    v-if="!isRunning"
+                    size="xl"
+                    color="primary"
+                    class="full-width rounded-custom text-weight-bold"
+                    label="START"
+                    @click="startSession"
+                    :disable="!callsign || !selectedScript"
                   />
-                </div>
-                <div>
-                  <div class="text-caption text-grey-5">
-                    Tolerance (±): {{ (tolerance * 100).toFixed(0) }}%
-                  </div>
-                  <q-slider
-                    v-model="tolerance"
-                    :min="0.1"
-                    :max="0.8"
-                    :step="0.05"
-                    dark
+                  <q-btn
+                    v-else
+                    size="xl"
                     color="negative"
+                    class="full-width rounded-custom text-weight-bold"
+                    label="STOP"
+                    @click="stopSession"
                   />
                 </div>
-              </div>
+              </q-card-section>
+            </q-card>
 
-              <div class="col-12 col-md-2 flex flex-center">
-                <q-btn
-                  v-if="!isRunning"
-                  size="xl"
-                  color="primary"
-                  class="full-width rounded-custom text-weight-bold"
-                  label="START"
-                  @click="startSession"
-                  :disable="!callsign || !selectedScript"
-                />
-                <q-btn
-                  v-else
-                  size="xl"
-                  color="negative"
-                  class="full-width rounded-custom text-weight-bold"
-                  label="STOP"
-                  @click="stopSession"
-                />
-              </div>
-            </q-card-section>
-          </q-card>
+            <q-expansion-item
+              v-model="isAdvancedExpanded"
+              icon="tune"
+              label="Advanced Tuning & Radio Effects"
+              header-class="text-grey-4 text-weight-bold rounded-custom"
+              class="bg-grey-10 flat bordered-custom rounded-custom"
+            >
+              <q-card class="bg-transparent flat">
+                <q-card-section class="row q-col-gutter-xl q-pt-none">
+                  <div class="col-12 col-md-4">
+                    <div class="text-subtitle2 text-primary q-mb-sm">
+                      Keying & Tones
+                    </div>
+                    <div class="q-mb-md">
+                      <div class="text-caption text-grey-5">
+                        TX Tone: {{ toneFreq }} Hz
+                      </div>
+                      <q-slider
+                        v-model="toneFreq"
+                        :min="400"
+                        :max="1000"
+                        :step="10"
+                        dark
+                        color="primary"
+                      />
+                    </div>
+                    <div>
+                      <div class="text-caption text-grey-5">
+                        Tolerance (±): {{ (tolerance * 100).toFixed(0) }}%
+                      </div>
+                      <q-slider
+                        v-model="tolerance"
+                        :min="0.1"
+                        :max="0.8"
+                        :step="0.05"
+                        dark
+                        color="negative"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="col-12 col-md-4">
+                    <div class="row items-center justify-between q-mb-sm">
+                      <div class="text-subtitle2 text-secondary">
+                        HF Ionosphere Static
+                      </div>
+                      <q-toggle
+                        v-model="enableNoise"
+                        color="secondary"
+                        size="sm"
+                      />
+                    </div>
+                    <div :class="enableNoise ? '' : 'disabled-opacity'">
+                      <div class="text-caption text-grey-5">
+                        QRN Volume Level
+                      </div>
+                      <q-slider
+                        v-model="noiseVolume"
+                        :min="0.01"
+                        :max="0.5"
+                        :step="0.01"
+                        dark
+                        color="secondary"
+                        :disable="!enableNoise"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="col-12 col-md-4">
+                    <div class="row items-center justify-between q-mb-sm">
+                      <div class="text-subtitle2 text-info">
+                        QSB Signal Fading (RX)
+                      </div>
+                      <q-toggle v-model="enableQsb" color="info" size="sm" />
+                    </div>
+                    <div :class="enableQsb ? '' : 'disabled-opacity'">
+                      <div class="text-caption text-grey-5">Fade Depth</div>
+                      <q-slider
+                        v-model="qsbDepth"
+                        :min="0.1"
+                        :max="0.95"
+                        :step="0.05"
+                        dark
+                        color="info"
+                        :disable="!enableQsb"
+                      />
+                    </div>
+                  </div>
+                </q-card-section>
+              </q-card>
+            </q-expansion-item>
+          </div>
 
           <template v-if="appState === 'RUNNING'">
             <q-card
@@ -353,9 +417,18 @@ const callsign = ref("VK4ABC");
 const selectedScript = ref<ScriptDef>(scripts[0]);
 const charWpm = ref(15);
 const effWpm = ref(15);
+
+// UI State
+const isAdvancedExpanded = ref(false);
+
+// Radio Effects State
 const toneFreq = ref(700);
 const rxToneFreq = ref(700);
 const tolerance = ref(0.3);
+const enableNoise = ref(true);
+const noiseVolume = ref(0.05);
+const enableQsb = ref(true);
+const qsbDepth = ref(0.7); // Range 0 to 1
 
 const compiledScript = ref<ScriptLine[]>([]);
 const historyLines = ref<ScriptLine[]>([]);
@@ -377,10 +450,20 @@ const totalChars = ref(0);
 // DOM Refs
 const activeMessageRef = ref<HTMLElement | null>(null);
 
-// Audio & Timing Refs
+// Audio Engine Refs
 let audioCtx: AudioContext | null = null;
+
+// CW Tones
 let oscillator: OscillatorNode | null = null;
 let gainNode: GainNode | null = null;
+
+// Noise Generator
+let noiseSource: AudioBufferSourceNode | null = null;
+let noiseFilter: BiquadFilterNode | null = null;
+let noiseGain: GainNode | null = null;
+let noiseLfo: OscillatorNode | null = null;
+let noiseLfoGain: GainNode | null = null;
+
 let keydownTime = 0;
 let animationFrameId: number | null = null;
 let isKeyDown = false;
@@ -437,6 +520,8 @@ const initAudio = () => {
     audioCtx = new (
       window.AudioContext || (window as any).webkitAudioContext
     )();
+
+    // 1. Build CW Tone Graph
     oscillator = audioCtx.createOscillator();
     gainNode = audioCtx.createGain();
     oscillator.type = "sine";
@@ -445,10 +530,61 @@ const initAudio = () => {
     oscillator.connect(gainNode);
     gainNode.connect(audioCtx.destination);
     oscillator.start();
+
+    // 2. Build Authentic Swirling HF Noise Graph
+    const bufferSize = audioCtx.sampleRate * 2;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const output = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+
+    noiseSource = audioCtx.createBufferSource();
+    noiseSource.buffer = buffer;
+    noiseSource.loop = true;
+
+    noiseFilter = audioCtx.createBiquadFilter();
+    noiseFilter.type = "bandpass";
+    noiseFilter.frequency.value = 1000;
+    noiseFilter.Q.value = 1.0;
+
+    noiseLfo = audioCtx.createOscillator();
+    noiseLfo.type = "sine";
+    noiseLfo.frequency.value = 0.15;
+    noiseLfoGain = audioCtx.createGain();
+    noiseLfoGain.gain.value = 300;
+
+    noiseGain = audioCtx.createGain();
+    noiseGain.gain.value = 0;
+
+    noiseLfo.connect(noiseLfoGain);
+    noiseLfoGain.connect(noiseFilter.frequency);
+
+    noiseSource.connect(noiseFilter);
+    noiseFilter.connect(noiseGain);
+    noiseGain.connect(audioCtx.destination);
+
+    noiseSource.start();
+    noiseLfo.start();
   } else if (audioCtx.state === "suspended") {
     audioCtx.resume();
   }
 };
+
+// QSK Full Break-in: Noise fades out only when actively pressing the key
+const syncNoiseEngine = () => {
+  if (!audioCtx || !noiseGain) return;
+  // If we are actively holding the key down, mute the noise. Otherwise, play it.
+  const isTransmitting = isUserTurn.value && isKeyDown;
+  const targetVol =
+    isRunning.value && enableNoise.value && !isTransmitting
+      ? noiseVolume.value
+      : 0;
+
+  // 10ms fade allows the noise to chop in and out perfectly between dots and dashes
+  noiseGain.gain.setTargetAtTime(targetVol, audioCtx.currentTime, 0.01);
+};
+
+// Watch settings and state to toggle noise
+watch([enableNoise, noiseVolume, isUserTurn, appState], syncNoiseEngine);
 
 const toneOn = () => {
   if (!audioCtx || !gainNode || !oscillator) return;
@@ -457,9 +593,15 @@ const toneOn = () => {
   const activeFreq = isUserTurn.value ? toneFreq.value : rxToneFreq.value;
   oscillator.frequency.setTargetAtTime(activeFreq, now, 0.005);
 
+  let targetVol = 1.0;
+  if (!isUserTurn.value && enableQsb.value) {
+    const qsbWave = (Math.sin(performance.now() / 2500) + 1) / 2;
+    targetVol = 1.0 - qsbDepth.value * qsbWave;
+  }
+
   gainNode.gain.cancelScheduledValues(now);
   gainNode.gain.setValueAtTime(gainNode.gain.value, now);
-  gainNode.gain.setTargetAtTime(1, now, 0.005);
+  gainNode.gain.setTargetAtTime(targetVol, now, 0.005);
 };
 
 const toneOff = () => {
@@ -479,6 +621,7 @@ watch(toneFreq, (newFreq) => {
 // --- Game Logic ---
 const startSession = () => {
   initAudio();
+  isAdvancedExpanded.value = false; // Auto-collapse the tuning panel to focus the UX
 
   const offset = Math.floor(Math.random() * 151) + 50;
   const dir = Math.random() > 0.5 ? 1 : -1;
@@ -497,12 +640,15 @@ const startSession = () => {
   score.value = 0;
   totalChars.value = 0;
   appState.value = "RUNNING";
+
+  syncNoiseEngine();
   processLine();
 };
 
 const stopSession = () => {
   appState.value = "IDLE";
   toneOff();
+  syncNoiseEngine();
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
 };
 
@@ -510,6 +656,7 @@ const processLine = () => {
   if (appState.value !== "RUNNING") return;
   if (currentLineIndex.value >= compiledScript.value.length) {
     appState.value = "FINISHED";
+    syncNoiseEngine();
     return;
   }
   revealedLength.value = 0;
@@ -602,6 +749,8 @@ const handleKeydown = () => {
   keyLockoutTime = now + DEBOUNCE_DELAY;
 
   toneOn();
+  syncNoiseEngine(); // QSK Mute
+
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
   animationFrameId = requestAnimationFrame(updateVisualizer);
 };
@@ -619,6 +768,8 @@ const handleKeyup = () => {
   keyLockoutTime = now + DEBOUNCE_DELAY;
 
   toneOff();
+  syncNoiseEngine(); // QSK Unmute
+
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
   evaluateElement();
 };
@@ -746,7 +897,7 @@ const getElementFillColor = (idx: number) => {
 const getElementFillWidth = (idx: number) => elementFills.value[idx] || 0;
 
 // --- Lifecycle & Persistence ---
-const STORAGE_KEY = "cw-trainer-settings";
+const STORAGE_KEY = "cw-trainer-settings-v2";
 
 onMounted(() => {
   const saved = localStorage.getItem(STORAGE_KEY);
@@ -762,6 +913,13 @@ onMounted(() => {
       if (parsed.effWpm) effWpm.value = parsed.effWpm;
       if (parsed.toneFreq) toneFreq.value = parsed.toneFreq;
       if (parsed.tolerance) tolerance.value = parsed.tolerance;
+      if (parsed.enableNoise !== undefined)
+        enableNoise.value = parsed.enableNoise;
+      if (parsed.noiseVolume) noiseVolume.value = parsed.noiseVolume;
+      if (parsed.enableQsb !== undefined) enableQsb.value = parsed.enableQsb;
+      if (parsed.qsbDepth) qsbDepth.value = parsed.qsbDepth;
+      if (parsed.isAdvancedExpanded !== undefined)
+        isAdvancedExpanded.value = parsed.isAdvancedExpanded;
     } catch (e) {
       console.warn("Failed to parse settings", e);
     }
@@ -772,7 +930,19 @@ onMounted(() => {
 });
 
 watch(
-  [callsign, selectedScript, charWpm, effWpm, toneFreq, tolerance],
+  [
+    callsign,
+    selectedScript,
+    charWpm,
+    effWpm,
+    toneFreq,
+    tolerance,
+    enableNoise,
+    noiseVolume,
+    enableQsb,
+    qsbDepth,
+    isAdvancedExpanded,
+  ],
   () => {
     const settings = {
       callsign: callsign.value,
@@ -781,6 +951,11 @@ watch(
       effWpm: effWpm.value,
       toneFreq: toneFreq.value,
       tolerance: tolerance.value,
+      enableNoise: enableNoise.value,
+      noiseVolume: noiseVolume.value,
+      enableQsb: enableQsb.value,
+      qsbDepth: qsbDepth.value,
+      isAdvancedExpanded: isAdvancedExpanded.value,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
   },
@@ -806,6 +981,11 @@ onUnmounted(() => {
 }
 .transition-all {
   transition: all 0.3s ease;
+}
+.disabled-opacity {
+  opacity: 0.4;
+  pointer-events: none;
+  transition: opacity 0.3s;
 }
 
 /* History Window */
@@ -838,7 +1018,6 @@ onUnmounted(() => {
   text-align: left;
   white-space: nowrap;
 
-  /* FIX: Explicitly disable Y-scrolling and add vertical padding for the animation */
   overflow-x: hidden;
   overflow-y: hidden;
   padding-top: 10px;
