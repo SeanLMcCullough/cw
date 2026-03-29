@@ -223,22 +223,39 @@
                 </div>
 
                 <div
-                  class="row justify-center items-center q-gutter-x-md transition-all"
-                  style="height: 60px"
+                  class="column items-stretch transition-all"
+                  style="width: max-content; margin: 0 auto"
                 >
                   <div
-                    v-for="(element, elIdx) in currentExpectedElements"
-                    :key="elIdx"
-                    class="morse-element-container bg-grey-9 rounded-custom overflow-hidden"
-                    :style="{
-                      width: element === '.' ? '80px' : '200px',
-                      height: '100%',
-                    }"
+                    class="row justify-center items-center transition-all"
+                    style="height: 60px; gap: 16px"
                   >
                     <div
-                      class="morse-element-fill full-height"
-                      :class="getElementFillColor(elIdx)"
-                      :style="{ width: getElementFillWidth(elIdx) + '%' }"
+                      v-for="(element, elIdx) in currentExpectedElements"
+                      :key="elIdx"
+                      class="morse-element-container bg-grey-9 rounded-custom overflow-hidden"
+                      :style="{
+                        width: element === '.' ? '80px' : '200px',
+                        height: '100%',
+                      }"
+                    >
+                      <div
+                        class="morse-element-fill full-height"
+                        :class="getElementFillColor(elIdx)"
+                        :style="{ width: getElementFillWidth(elIdx) + '%' }"
+                      ></div>
+                    </div>
+                  </div>
+
+                  <div
+                    v-if="isUserTurn"
+                    class="bg-grey-9 rounded-custom overflow-hidden q-mt-md transition-all"
+                    style="height: 6px; width: 100%"
+                  >
+                    <div
+                      class="bg-info full-height"
+                      style="transition: none"
+                      :style="{ width: pacerFill + '%' }"
                     ></div>
                   </div>
                 </div>
@@ -247,10 +264,7 @@
                   <span v-if="isUserTurn"
                     >Tap or hold SPACEBAR, or touch here to key.</span
                   >
-                  <span v-else class="text-secondary"
-                    >RX Tone offset by {{ rxToneFreq - toneFreq > 0 ? "+" : ""
-                    }}{{ rxToneFreq - toneFreq }}Hz...</span
-                  >
+                  <span v-else class="text-secondary">Receiving...</span>
                 </div>
               </div>
 
@@ -472,6 +486,14 @@ let isKeyDown = false;
 let keyLockoutTime = 0;
 const DEBOUNCE_DELAY = 12;
 
+// Pacer Tracking
+const pacerFill = ref(0);
+let pacerTimeout: ReturnType<typeof setTimeout> | null = null;
+let pacerFrameId: number | null = null;
+let pacerStartTime = 0;
+let pacerDuration = 0;
+const PACER_DWELL_MS = 600; // Delay before pacer begins
+
 // --- Computed ---
 const isRunning = computed(() => appState.value === "RUNNING");
 const reversedHistoryLines = computed(() => [...historyLines.value].reverse());
@@ -572,18 +594,14 @@ const initAudio = () => {
 // QSK Full Break-in: Noise fades out only when actively pressing the key
 const syncNoiseEngine = () => {
   if (!audioCtx || !noiseGain) return;
-  // If we are actively holding the key down, mute the noise. Otherwise, play it.
   const isTransmitting = isUserTurn.value && isKeyDown;
   const targetVol =
     isRunning.value && enableNoise.value && !isTransmitting
       ? noiseVolume.value
       : 0;
-
-  // 10ms fade allows the noise to chop in and out perfectly between dots and dashes
   noiseGain.gain.setTargetAtTime(targetVol, audioCtx.currentTime, 0.01);
 };
 
-// Watch settings and state to toggle noise
 watch([enableNoise, noiseVolume, isUserTurn, appState], syncNoiseEngine);
 
 const toneOn = () => {
@@ -621,7 +639,7 @@ watch(toneFreq, (newFreq) => {
 // --- Game Logic ---
 const startSession = () => {
   initAudio();
-  isAdvancedExpanded.value = false; // Auto-collapse the tuning panel to focus the UX
+  isAdvancedExpanded.value = false;
 
   const offset = Math.floor(Math.random() * 151) + 50;
   const dir = Math.random() > 0.5 ? 1 : -1;
@@ -649,7 +667,10 @@ const stopSession = () => {
   appState.value = "IDLE";
   toneOff();
   syncNoiseEngine();
+
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
+  if (pacerTimeout) clearTimeout(pacerTimeout);
+  if (pacerFrameId) cancelAnimationFrame(pacerFrameId);
 };
 
 const processLine = () => {
@@ -721,6 +742,38 @@ const setupCharState = () => {
   elementResults.value = Array(expectedCount).fill("pending");
 
   scrollToCurrentChar();
+
+  // Initialize Pacer Bar
+  if (isUserTurn.value) {
+    if (pacerTimeout) clearTimeout(pacerTimeout);
+    if (pacerFrameId) cancelAnimationFrame(pacerFrameId);
+    pacerFill.value = 0;
+
+    if (currentExpectedElements.value.length > 0) {
+      // Calculate exact duration: sum of elements + (1 dot gap between each element)
+      pacerDuration = currentExpectedElements.value.reduce((total, el, idx) => {
+        const elMs = el === "." ? dotMs.value : dashMs.value;
+        const gapMs =
+          idx < currentExpectedElements.value.length - 1 ? dotMs.value : 0;
+        return total + elMs + gapMs;
+      }, 0);
+
+      pacerTimeout = setTimeout(() => {
+        if (appState.value !== "RUNNING" || !isUserTurn.value) return;
+        pacerStartTime = performance.now();
+
+        const updatePacer = () => {
+          const elapsed = performance.now() - pacerStartTime;
+          pacerFill.value = Math.min((elapsed / pacerDuration) * 100, 100);
+
+          if (pacerFill.value < 100 && appState.value === "RUNNING") {
+            pacerFrameId = requestAnimationFrame(updatePacer);
+          }
+        };
+        pacerFrameId = requestAnimationFrame(updatePacer);
+      }, PACER_DWELL_MS);
+    }
+  }
 };
 
 // --- Keying Handlers (TX) with Debounce ---
@@ -966,6 +1019,8 @@ onUnmounted(() => {
   window.removeEventListener("keydown", handleGlobalKeydown);
   window.removeEventListener("keyup", handleGlobalKeyup);
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
+  if (pacerTimeout) clearTimeout(pacerTimeout);
+  if (pacerFrameId) cancelAnimationFrame(pacerFrameId);
 });
 </script>
 
