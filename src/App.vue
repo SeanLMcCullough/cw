@@ -6,6 +6,31 @@
         :class="appState === 'IDLE' ? 'items-center' : 'items-start'"
       >
         <div class="full-width column q-gutter-y-lg" style="max-width: 1200px">
+          <div
+            v-if="appState === 'IDLE'"
+            class="column items-center justify-center text-center q-pt-xl q-pb-sm fade-in"
+          >
+            <img
+              src="/logo.png"
+              alt="CW Trainer Logo"
+              style="width: 100px; height: 100px; border-radius: 20%"
+              class="q-mb-md shadow-5"
+              onerror="this.style.display = 'none'"
+            />
+            <h1
+              class="text-h2 text-weight-bolder text-white q-my-none"
+              style="letter-spacing: -1.5px"
+            >
+              CW Trainer
+            </h1>
+            <div
+              class="text-h5 text-info q-mt-sm text-weight-light"
+              style="letter-spacing: 0.5px"
+            >
+              Learn CW the practical way.
+            </div>
+          </div>
+
           <div class="column q-gutter-y-sm shrink-0">
             <q-card
               class="bg-grey-10 text-white flat bordered-custom rounded-custom q-pa-lg"
@@ -99,11 +124,26 @@
             >
               <q-card class="bg-transparent flat">
                 <q-card-section class="row q-col-gutter-xl q-pt-none">
-                  <div class="col-12 col-md-4">
-                    <div class="text-subtitle2 text-primary q-mb-sm">
-                      Keying & Tones
+                  <div class="col-12 col-md-6 column q-gutter-y-md">
+                    <div class="text-subtitle2 text-primary">
+                      Transmission (TX)
                     </div>
-                    <div class="q-mb-md">
+
+                    <div>
+                      <div class="text-caption text-grey-5">
+                        Sidetone Volume
+                      </div>
+                      <q-slider
+                        v-model="txVolume"
+                        :min="0.0"
+                        :max="1.0"
+                        :step="0.05"
+                        dark
+                        color="primary"
+                      />
+                    </div>
+
+                    <div>
                       <div class="text-caption text-grey-5">
                         TX Tone: {{ toneFreq }} Hz
                       </div>
@@ -116,6 +156,7 @@
                         color="primary"
                       />
                     </div>
+
                     <div>
                       <div class="text-caption text-grey-5">
                         Tolerance (±): {{ (tolerance * 100).toFixed(0) }}%
@@ -131,51 +172,68 @@
                     </div>
                   </div>
 
-                  <div class="col-12 col-md-4">
-                    <div class="row items-center justify-between q-mb-sm">
-                      <div class="text-subtitle2 text-secondary">
-                        HF Ionosphere Static
-                      </div>
-                      <q-toggle
-                        v-model="enableNoise"
-                        color="secondary"
-                        size="sm"
-                      />
+                  <div class="col-12 col-md-6 column q-gutter-y-md">
+                    <div class="text-subtitle2 text-secondary">
+                      Reception (RX)
                     </div>
-                    <div :class="enableNoise ? '' : 'disabled-opacity'">
-                      <div class="text-caption text-grey-5">
-                        QRN Volume Level
-                      </div>
-                      <q-slider
-                        v-model="noiseVolume"
-                        :min="0.01"
-                        :max="0.5"
-                        :step="0.01"
-                        dark
-                        color="secondary"
-                        :disable="!enableNoise"
-                      />
-                    </div>
-                  </div>
 
-                  <div class="col-12 col-md-4">
-                    <div class="row items-center justify-between q-mb-sm">
-                      <div class="text-subtitle2 text-info">
-                        QSB Signal Fading (RX)
+                    <div>
+                      <div class="text-caption text-grey-5">
+                        RX Signal Volume
                       </div>
-                      <q-toggle v-model="enableQsb" color="info" size="sm" />
-                    </div>
-                    <div :class="enableQsb ? '' : 'disabled-opacity'">
-                      <div class="text-caption text-grey-5">Fade Depth</div>
                       <q-slider
-                        v-model="qsbDepth"
-                        :min="0.1"
-                        :max="0.95"
+                        v-model="rxVolume"
+                        :min="0.0"
+                        :max="1.0"
                         :step="0.05"
                         dark
-                        color="info"
-                        :disable="!enableQsb"
+                        color="secondary"
                       />
+                    </div>
+
+                    <div>
+                      <div class="row items-center justify-between q-mb-xs">
+                        <div class="text-caption text-grey-4">
+                          HF Ionosphere Static
+                        </div>
+                        <q-toggle
+                          v-model="enableNoise"
+                          color="secondary"
+                          size="sm"
+                        />
+                      </div>
+                      <div :class="enableNoise ? '' : 'disabled-opacity'">
+                        <q-slider
+                          v-model="noiseVolume"
+                          :min="0.01"
+                          :max="0.5"
+                          :step="0.01"
+                          dark
+                          color="secondary"
+                          :disable="!enableNoise"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div class="row items-center justify-between q-mb-xs">
+                        <div class="text-caption text-grey-4">
+                          QSB Signal Fading
+                        </div>
+                        <q-toggle v-model="enableQsb" color="info" size="sm" />
+                      </div>
+                      <div :class="enableQsb ? '' : 'disabled-opacity'">
+                        <div class="text-caption text-grey-5">Fade Depth</div>
+                        <q-slider
+                          v-model="qsbDepth"
+                          :min="0.1"
+                          :max="1.0"
+                          :step="0.05"
+                          dark
+                          color="info"
+                          :disable="!enableQsb"
+                        />
+                      </div>
                     </div>
                   </div>
                 </q-card-section>
@@ -455,15 +513,18 @@ const effWpm = ref(15);
 // UI State
 const isAdvancedExpanded = ref(false);
 const isAcceptingInput = ref(false);
+let isFirstCharOfTx = true;
 
-// Radio Effects State
+// Audio/Radio Effects State
 const toneFreq = ref(700);
 const rxToneFreq = ref(700);
 const tolerance = ref(0.3);
+const txVolume = ref(1.0);
+const rxVolume = ref(1.0);
 const enableNoise = ref(true);
 const noiseVolume = ref(0.05);
 const enableQsb = ref(true);
-const qsbDepth = ref(0.7);
+const qsbDepth = ref(0.9);
 
 const compiledScript = ref<ScriptLine[]>([]);
 const historyLines = ref<ScriptLine[]>([]);
@@ -506,12 +567,11 @@ let keyLockoutTime = 0;
 const DEBOUNCE_DELAY = 12;
 
 const pacerFill = ref(0);
-let pacerTimeout: ReturnType<typeof setTimeout> | null = null;
+let pacerHasStarted = false;
 let txTimeout: ReturnType<typeof setTimeout> | null = null;
 let pacerFrameId: number | null = null;
 let pacerStartTime = 0;
 let pacerDuration = 0;
-const PACER_DWELL_MS = 600;
 
 // --- Computed ---
 const isRunning = computed(() => appState.value === "RUNNING");
@@ -627,10 +687,10 @@ const toneOn = () => {
   const activeFreq = isUserTurn.value ? toneFreq.value : rxToneFreq.value;
   oscillator.frequency.setTargetAtTime(activeFreq, now, 0.005);
 
-  let targetVol = 1.0;
+  let targetVol = isUserTurn.value ? txVolume.value : rxVolume.value;
   if (!isUserTurn.value && enableQsb.value) {
     const qsbWave = (Math.sin(performance.now() / 2500) + 1) / 2;
-    targetVol = 1.0 - qsbDepth.value * qsbWave;
+    targetVol = rxVolume.value - qsbDepth.value * qsbWave * rxVolume.value;
   }
 
   gainNode.gain.cancelScheduledValues(now);
@@ -657,6 +717,7 @@ const startSession = () => {
   initAudio();
   isAdvancedExpanded.value = false;
   isAcceptingInput.value = false;
+  isFirstCharOfTx = true;
 
   const offset = Math.floor(Math.random() * 151) + 50;
   const dir = Math.random() > 0.5 ? 1 : -1;
@@ -687,7 +748,6 @@ const stopSession = () => {
   syncNoiseEngine();
 
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
-  if (pacerTimeout) clearTimeout(pacerTimeout);
   if (pacerFrameId) cancelAnimationFrame(pacerFrameId);
   if (txTimeout) clearTimeout(txTimeout);
 };
@@ -708,10 +768,14 @@ const processLine = () => {
   if (line.speaker === "TX") {
     isUserTurn.value = true;
     currentCharIndex.value = 0;
+    revealedLength.value = 1;
+    isFirstCharOfTx = true;
+    isAcceptingInput.value = false;
+
     if (line.text[0] === " ") {
       advanceTXChar();
     } else {
-      setupCharState();
+      setupPlayableChar(0);
     }
   } else {
     isUserTurn.value = false;
@@ -743,30 +807,31 @@ const scrollToCurrentChar = async () => {
   }
 };
 
-const advanceTXChar = () => {
+const setupPlayableChar = (accumulatedDelay: number) => {
   if (appState.value !== "RUNNING") return;
 
-  currentCharIndex.value++;
-  revealedLength.value = currentCharIndex.value;
+  if (txTimeout) clearTimeout(txTimeout);
 
   const line = compiledScript.value[currentLineIndex.value];
   if (currentCharIndex.value >= line.text.length) {
-    finishLine();
+    txTimeout = setTimeout(finishLine, accumulatedDelay);
     return;
   }
 
-  if (line.text[currentCharIndex.value] === " ") {
+  const char = line.text[currentCharIndex.value];
+
+  if (char === " ") {
     charStatuses.value[currentCharIndex.value] = "passed";
     const farnsworthRatio = charWpm.value / effWpm.value;
-    const wordSpaceMs = dashMs.value * farnsworthRatio * 2;
-    txTimeout = setTimeout(advanceTXChar, wordSpaceMs);
+    const wordSpaceMs = dotMs.value * 4 * farnsworthRatio;
+
+    currentCharIndex.value++;
+    revealedLength.value = currentCharIndex.value + 1;
+
+    setupPlayableChar(accumulatedDelay + wordSpaceMs);
     return;
   }
 
-  setupCharState();
-};
-
-const setupCharState = () => {
   charStatuses.value[currentCharIndex.value] = "active";
   const expectedCount = currentExpectedElements.value.length;
   currentElementIndex.value = 0;
@@ -776,9 +841,9 @@ const setupCharState = () => {
   scrollToCurrentChar();
 
   if (isUserTurn.value) {
-    isAcceptingInput.value = true;
+    isAcceptingInput.value = false;
 
-    if (pacerTimeout) clearTimeout(pacerTimeout);
+    pacerHasStarted = false;
     if (pacerFrameId) cancelAnimationFrame(pacerFrameId);
     pacerFill.value = 0;
 
@@ -789,26 +854,41 @@ const setupCharState = () => {
           idx < currentExpectedElements.value.length - 1 ? dotMs.value : 0;
         return total + elMs + gapMs;
       }, 0);
+    }
 
-      pacerTimeout = setTimeout(() => {
-        if (appState.value !== "RUNNING" || !isUserTurn.value) return;
+    // Unlock input practically instantly (20ms bounds protection only)
+    // Allows the user to key ahead of the pacer if they are ready!
+    setTimeout(() => {
+      if (appState.value === "RUNNING" && isUserTurn.value) {
+        isAcceptingInput.value = true;
+      }
+    }, 20);
+
+    // Pacer Auto-Start schedule
+    txTimeout = setTimeout(() => {
+      if (appState.value !== "RUNNING" || !isUserTurn.value) return;
+
+      if (isFirstCharOfTx) {
+        isFirstCharOfTx = false;
+      } else if (!pacerHasStarted) {
+        // Auto-start pacer to enforce rhythm
+        pacerHasStarted = true;
         pacerStartTime = performance.now();
 
         const updatePacer = () => {
           const elapsed = performance.now() - pacerStartTime;
           pacerFill.value = Math.min((elapsed / pacerDuration) * 100, 100);
-
           if (pacerFill.value < 100 && appState.value === "RUNNING") {
             pacerFrameId = requestAnimationFrame(updatePacer);
           }
         };
         pacerFrameId = requestAnimationFrame(updatePacer);
-      }, PACER_DWELL_MS);
-    }
+      }
+    }, accumulatedDelay);
   }
 };
 
-// --- Keying Handlers (TX) with Debounce ---
+// --- Keying Handlers (TX) ---
 const handleGlobalKeydown = (e: KeyboardEvent) => {
   if (e.repeat) return;
   if (e.code === "Space" && isRunning.value && isUserTurn.value) {
@@ -835,6 +915,21 @@ const handleKeydown = () => {
 
   toneOn();
   syncNoiseEngine();
+
+  // If user beats the pacer (or starts TX), start the pacer tracking immediately
+  if (!pacerHasStarted) {
+    pacerHasStarted = true;
+    pacerStartTime = now;
+
+    const updatePacer = () => {
+      const elapsed = performance.now() - pacerStartTime;
+      pacerFill.value = Math.min((elapsed / pacerDuration) * 100, 100);
+      if (pacerFill.value < 100 && appState.value === "RUNNING") {
+        pacerFrameId = requestAnimationFrame(updatePacer);
+      }
+    };
+    pacerFrameId = requestAnimationFrame(updatePacer);
+  }
 
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
   animationFrameId = requestAnimationFrame(updateVisualizer);
@@ -890,7 +985,7 @@ const evaluateElement = () => {
   currentElementIndex.value++;
 
   if (currentElementIndex.value >= currentExpectedElements.value.length) {
-    isAcceptingInput.value = false;
+    isAcceptingInput.value = false; // Instant lockout prevents bounds overrun
 
     const allPassed = elementResults.value.every((res) => res === "passed");
     charStatuses.value[currentCharIndex.value] = allPassed
@@ -899,9 +994,13 @@ const evaluateElement = () => {
     if (allPassed) score.value++;
     totalChars.value++;
 
+    const farnsworthRatio = charWpm.value / effWpm.value;
+    const letterSpaceMs = dotMs.value * 3 * farnsworthRatio;
+
+    currentCharIndex.value++;
     revealedLength.value = currentCharIndex.value + 1;
 
-    txTimeout = setTimeout(advanceTXChar, 300);
+    setupPlayableChar(letterSpaceMs);
   }
 };
 
@@ -921,14 +1020,19 @@ const playRXLine = async () => {
 
     if (char === " ") {
       charStatuses.value[i] = "rx";
-      await sleep(dashMs.value * farnsworthRatio * 2);
+      await sleep(dotMs.value * 4 * farnsworthRatio);
       continue;
     }
 
     const code = morseDict[char];
     if (!code) continue;
 
-    setupCharState();
+    charStatuses.value[currentCharIndex.value] = "active";
+    const expectedCount = currentExpectedElements.value.length;
+    currentElementIndex.value = 0;
+    elementFills.value = Array(expectedCount).fill(0);
+    elementResults.value = Array(expectedCount).fill("pending");
+    scrollToCurrentChar();
 
     for (let e = 0; e < code.length; e++) {
       if (appState.value !== "RUNNING") return;
@@ -940,9 +1044,13 @@ const playRXLine = async () => {
       await playRXElementFill(duration, e);
       toneOff();
 
-      await sleep(dotMs.value);
+      // Fix: Only apply inter-element gap if not the last element
+      if (e < code.length - 1) {
+        await sleep(dotMs.value);
+      }
     }
     charStatuses.value[i] = "rx";
+    // Standard Letter Space
     await sleep(dashMs.value * farnsworthRatio);
   }
   finishLine();
@@ -984,7 +1092,7 @@ const getElementFillColor = (idx: number) => {
 const getElementFillWidth = (idx: number) => elementFills.value[idx] || 0;
 
 // --- Lifecycle & Persistence ---
-const STORAGE_KEY = "cw-trainer-settings-v2";
+const STORAGE_KEY = "cw-trainer-settings-v3";
 
 onMounted(() => {
   const saved = localStorage.getItem(STORAGE_KEY);
@@ -1000,11 +1108,13 @@ onMounted(() => {
       if (parsed.effWpm) effWpm.value = parsed.effWpm;
       if (parsed.toneFreq) toneFreq.value = parsed.toneFreq;
       if (parsed.tolerance) tolerance.value = parsed.tolerance;
+      if (parsed.txVolume !== undefined) txVolume.value = parsed.txVolume;
+      if (parsed.rxVolume !== undefined) rxVolume.value = parsed.rxVolume;
       if (parsed.enableNoise !== undefined)
         enableNoise.value = parsed.enableNoise;
       if (parsed.noiseVolume) noiseVolume.value = parsed.noiseVolume;
       if (parsed.enableQsb !== undefined) enableQsb.value = parsed.enableQsb;
-      if (parsed.qsbDepth) qsbDepth.value = parsed.qsbDepth;
+      if (parsed.qsbDepth !== undefined) qsbDepth.value = parsed.qsbDepth;
       if (parsed.isAdvancedExpanded !== undefined)
         isAdvancedExpanded.value = parsed.isAdvancedExpanded;
     } catch (e) {
@@ -1024,6 +1134,8 @@ watch(
     effWpm,
     toneFreq,
     tolerance,
+    txVolume,
+    rxVolume,
     enableNoise,
     noiseVolume,
     enableQsb,
@@ -1038,6 +1150,8 @@ watch(
       effWpm: effWpm.value,
       toneFreq: toneFreq.value,
       tolerance: tolerance.value,
+      txVolume: txVolume.value,
+      rxVolume: rxVolume.value,
       enableNoise: enableNoise.value,
       noiseVolume: noiseVolume.value,
       enableQsb: enableQsb.value,
@@ -1053,7 +1167,6 @@ onUnmounted(() => {
   window.removeEventListener("keydown", handleGlobalKeydown);
   window.removeEventListener("keyup", handleGlobalKeyup);
   if (animationFrameId) cancelAnimationFrame(animationFrameId);
-  if (pacerTimeout) clearTimeout(pacerTimeout);
   if (pacerFrameId) cancelAnimationFrame(pacerFrameId);
   if (txTimeout) clearTimeout(txTimeout);
 });
