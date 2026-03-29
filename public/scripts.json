@@ -253,5 +253,227 @@
       { "speaker": "RX", "text": "TU" },
       { "speaker": "TX", "text": "TEST DE {CALL} SK" }
     ]
+  },
+  {
+    "id": "drill-alphanum",
+    "title": "Alphabet & Numbers Mastery",
+    "description": "The ultimate endurance drill. Build muscle memory through intensive 10x, 3x, 1x, and reverse repetitions.",
+    "lines": [
+      { "speaker": "TX", "text": "{CALL} STARTING DRILL" },
+
+      {
+        "speaker": "TX",
+        "text": "A A A A A A A A A A B B B B B B B B B B C C C C C C C C C C D D D D D D D D D D"
+      },
+      {
+        "speaker": "TX",
+        "text": "E E E E E E E E E E F F F F F F F F F F G G G G G G G G G G H H H H H H H H H H"
+      },
+      {
+        "speaker": "TX",
+        "text": "I I I I I I I I I I J J J J J J J J J J K K K K K K K K K K L L L L L L L L L L"
+      },
+      {
+        "speaker": "TX",
+        "text": "M M M M M M M M M M N N N N N N N N N N O O O O O O O O O O P P P P P P P P P P"
+      },
+      {
+        "speaker": "TX",
+        "text": "Q Q Q Q Q Q Q Q Q Q R R R R R R R R R R S S S S S S S S S S T T T T T T T T T T"
+      },
+      {
+        "speaker": "TX",
+        "text": "U U U U U U U U U U V V V V V V V V V V W W W W W W W W W W X X X X X X X X X X"
+      },
+      {
+        "speaker": "TX",
+        "text": "Y Y Y Y Y Y Y Y Y Y Z Z Z Z Z Z Z Z Z Z 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1"
+      },
+      {
+        "speaker": "TX",
+        "text": "2 2 2 2 2 2 2 2 2 2 3 3 3 3 3 3 3 3 3 3 4 4 4 4 4 4 4 4 4 4 5 5 5 5 5 5 5 5 5 5"
+      },
+      {
+        "speaker": "TX",
+        "text": "6 6 6 6 6 6 6 6 6 6 7 7 7 7 7 7 7 7 7 7 8 8 8 8 8 8 8 8 8 8 9 9 9 9 9 9 9 9 9 9"
+      },
+
+      {
+        "speaker": "TX",
+        "text": "A A A A A A A A A A B B B B B B B B B B C C C C C C C C C C D D D D D D D D D D"
+      },
+      {
+        "speaker": "TX",
+        "text": "E E E E E E E E E E F F F F F F F F F F G G G G G G G G G G H H H H H H H H H H"
+      },
+      {
+        "speaker": "TX",
+        "text": "I I I I I I I I I I J J J J J J J J J J K K K K K K K K K K L L L L L L L L L L"
+      },
+      {
+        "speaker": "TX",
+        "text": "M M M M M M M M M M N N N N N N N N N N O O O O O O O O O O P P P P P P P P P P"
+      },
+      {
+        "speaker": "TX",
+        "text": "Q Q Q Q Q Q Q Q Q Q R R R R R R R R R R S S S S S S S S S S T T T T T T T T T T"
+      },
+      {
+        "speaker": "TX",
+        "text": "U U U U U U U U U U V V V V V V V V V V W W W W W W W W W W X X X X X X X X X X"
+      },
+      {
+        "speaker": "TX",
+        "text": "Y Y Y Y Y Y Y Y Y Y Z Z Z Z Z Z Z Z Z Z 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1"
+      },
+      {
+        "speaker": "TX",
+        "text": "2 2 2 2 2 2 2 2 2 2 3 3 3 3 3 3 3 3 3 3 4 4 4 4 4 4 4 4 4 4 5 5 5 5 5 5 5 5 5 5"
+      },
+      {
+        "speaker": "TX",
+        "text": "6 6 6 6 6 6 6 6 6 6 7 7 7 7 7 7 7 7 7 7 8 8 8 8 8 8 8 8 8 8 9 9 9 9 9 9 9 9 9 9"
+      },
+
+      {
+        "speaker": "TX",
+        "text": "A A A A A A A A A A B B B B B B B B B B C C C C C C C C C C D D D D D D D D D D"
+      },
+      {
+        "speaker": "TX",
+        "text": "E E E E E E E E E E F F F F F F F F F F G G G G G G G G G G H H H H H H H H H H"
+      },
+      {
+        "speaker": "TX",
+        "text": "I I I I I I I I I I J J J J J J J J J J K K K K K K K K K K L L L L L L L L L L"
+      },
+      {
+        "speaker": "TX",
+        "text": "M M M M M M M M M M N N N N N N N N N N O O O O O O O O O O P P P P P P P P P P"
+      },
+      {
+        "speaker": "TX",
+        "text": "Q Q Q Q Q Q Q Q Q Q R R R R R R R R R R S S S S S S S S S S T T T T T T T T T T"
+      },
+      {
+        "speaker": "TX",
+        "text": "U U U U U U U U U U V V V V V V V V V V W W W W W W W W W W X X X X X X X X X X"
+      },
+      {
+        "speaker": "TX",
+        "text": "Y Y Y Y Y Y Y Y Y Y Z Z Z Z Z Z Z Z Z Z 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1"
+      },
+      {
+        "speaker": "TX",
+        "text": "2 2 2 2 2 2 2 2 2 2 3 3 3 3 3 3 3 3 3 3 4 4 4 4 4 4 4 4 4 4 5 5 5 5 5 5 5 5 5 5"
+      },
+      {
+        "speaker": "TX",
+        "text": "6 6 6 6 6 6 6 6 6 6 7 7 7 7 7 7 7 7 7 7 8 8 8 8 8 8 8 8 8 8 9 9 9 9 9 9 9 9 9 9"
+      },
+
+      {
+        "speaker": "TX",
+        "text": "A A A B B B C C C D D D E E E F F F G G G H H H I I I J J J K K K L L L"
+      },
+      {
+        "speaker": "TX",
+        "text": "M M M N N N O O O P P P Q Q Q R R R S S S T T T U U U V V V W W W X X X"
+      },
+      {
+        "speaker": "TX",
+        "text": "Y Y Y Z Z Z 0 0 0 1 1 1 2 2 2 3 3 3 4 4 4 5 5 5 6 6 6 7 7 7 8 8 8 9 9 9"
+      },
+
+      {
+        "speaker": "TX",
+        "text": "A A A B B B C C C D D D E E E F F F G G G H H H I I I J J J K K K L L L"
+      },
+      {
+        "speaker": "TX",
+        "text": "M M M N N N O O O P P P Q Q Q R R R S S S T T T U U U V V V W W W X X X"
+      },
+      {
+        "speaker": "TX",
+        "text": "Y Y Y Z Z Z 0 0 0 1 1 1 2 2 2 3 3 3 4 4 4 5 5 5 6 6 6 7 7 7 8 8 8 9 9 9"
+      },
+
+      {
+        "speaker": "TX",
+        "text": "A A A B B B C C C D D D E E E F F F G G G H H H I I I J J J K K K L L L"
+      },
+      {
+        "speaker": "TX",
+        "text": "M M M N N N O O O P P P Q Q Q R R R S S S T T T U U U V V V W W W X X X"
+      },
+      {
+        "speaker": "TX",
+        "text": "Y Y Y Z Z Z 0 0 0 1 1 1 2 2 2 3 3 3 4 4 4 5 5 5 6 6 6 7 7 7 8 8 8 9 9 9"
+      },
+
+      {
+        "speaker": "TX",
+        "text": "A B C D E F G H I J K L M N O P Q R S T U V W X Y Z 0 1 2 3 4 5 6 7 8 9"
+      },
+      {
+        "speaker": "TX",
+        "text": "A B C D E F G H I J K L M N O P Q R S T U V W X Y Z 0 1 2 3 4 5 6 7 8 9"
+      },
+      {
+        "speaker": "TX",
+        "text": "A B C D E F G H I J K L M N O P Q R S T U V W X Y Z 0 1 2 3 4 5 6 7 8 9"
+      },
+
+      {
+        "speaker": "TX",
+        "text": "9 8 7 6 5 4 3 2 1 0 Z Y X W V U T S R Q P O N M L K J I H G F E D C B A"
+      },
+      {
+        "speaker": "TX",
+        "text": "9 8 7 6 5 4 3 2 1 0 Z Y X W V U T S R Q P O N M L K J I H G F E D C B A"
+      },
+      {
+        "speaker": "TX",
+        "text": "9 8 7 6 5 4 3 2 1 0 Z Y X W V U T S R Q P O N M L K J I H G F E D C B A"
+      },
+
+      { "speaker": "TX", "text": "END OF DRILL {CALL}" }
+    ]
+  },
+  {
+    "id": "drill-symbols",
+    "title": "Special Symbols Drill",
+    "description": "Practice punctuation and special characters: ? / - . ,",
+    "lines": [
+      { "speaker": "TX", "text": "VVV DE {CALL} SYMBOL DRILL" },
+      { "speaker": "TX", "text": "? ? ? / / / - - - . . . , , ," },
+      { "speaker": "TX", "text": "? / - . , ? / - . , ? / - . ," },
+      { "speaker": "RX", "text": "TESTING CONTEXT FOR SYMBOLS" },
+      { "speaker": "TX", "text": "UR RST 599. QTH? PARK VK-1234." },
+      { "speaker": "RX", "text": "FREQ 14.074 MHZ, 1/2 WATT." },
+      { "speaker": "TX", "text": "YES, YES. NO, NO. A/B C/D E-F G-H" },
+      { "speaker": "TX", "text": "DRILL COMPLETE DE {CALL} AR" }
+    ]
+  },
+  {
+    "id": "drill-pangrams",
+    "title": "Pangram Practice",
+    "description": "Sentences containing every letter of the alphabet to test full keyboard mastery.",
+    "lines": [
+      {
+        "speaker": "TX",
+        "text": "{CALL} THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG {CALL}"
+      },
+      { "speaker": "RX", "text": "PACK MY BOX WITH FIVE DOZEN LIQUOR JUGS" },
+      {
+        "speaker": "TX",
+        "text": "{CALL} THE FIVE BOXING WIZARDS JUMP QUICKLY {CALL}"
+      },
+      { "speaker": "RX", "text": "SPHINX OF BLACK QUARTZ, JUDGE MY VOW" },
+      {
+        "speaker": "TX",
+        "text": "{CALL} HOW QUICKLY DAFT JUMPING ZEBRAS VEX {CALL}"
+      }
+    ]
   }
 ]
